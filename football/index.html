@@ -1,0 +1,438 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Football Game</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: #1a1a2e;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      font-family: Arial, sans-serif;
+      gap: 14px;
+    }
+    canvas { display: block; border: 3px solid #fff; border-radius: 6px; }
+    #score-display {
+      color: #fff;
+      font-size: 22px;
+      font-weight: bold;
+      letter-spacing: 3px;
+    }
+    #restart-btn {
+      padding: 9px 30px;
+      font-size: 15px;
+      font-weight: bold;
+      cursor: pointer;
+      background: #e07b00;
+      color: #fff;
+      border: none;
+      border-radius: 7px;
+      letter-spacing: 1px;
+      transition: opacity 0.15s;
+    }
+    #restart-btn:hover { opacity: 0.82; }
+  </style>
+</head>
+<body>
+  <div id="score-display">Zlatan 0 – 0 Salomon</div>
+  <canvas id="gameCanvas" width="900" height="600"></canvas>
+  <button id="restart-btn">Restart</button>
+
+  <script>
+    const canvas = document.getElementById('gameCanvas');
+    const ctx    = canvas.getContext('2d');
+    const W = 900, H = 600;
+
+    // Field sits inset so goal crescents fit within the canvas
+    const F = { x: 65, y: 40, w: 770, h: 520, cx: 450, cy: 300, circR: 70, penW: 130, penH: 220 };
+    // Goal: mouth height 120, depth 42 px, centered at y=300
+    const G = { h: 120, w: 42, mouthY: 240 };   // mouth: y 240–360
+
+    const p1 = { x:300, y:300, r:22, speed:4.2, color:'#e74c3c', name:'Zlatan',  score:0, sx:300, sy:300 };
+    const p2 = { x:600, y:300, r:22, speed:4.2, color:'#3498db', name:'Salomon', score:0, sx:600, sy:300 };
+    const ball = { x:450, y:300, r:14, vx:0, vy:0, friction:0.985 };
+
+    const keys = {};
+    let state       = 'playing';   // 'playing' | 'goal'
+    let celebTimer  = 0;
+    let celebName   = '';
+    let confetti    = [];
+
+    // ── Input ──────────────────────────────────────────────────────────────────
+
+    document.addEventListener('keydown', e => {
+      keys[e.key] = true;
+      if (['ArrowUp','ArrowDown','ArrowLeft','ArrowRight',' '].includes(e.key))
+        e.preventDefault();
+    });
+    document.addEventListener('keyup', e => { keys[e.key] = false; });
+
+    // ── Helpers ────────────────────────────────────────────────────────────────
+
+    function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
+
+    // ── Physics ────────────────────────────────────────────────────────────────
+
+    function movePlayer(p, dx, dy) {
+      const len = Math.sqrt(dx*dx + dy*dy);
+      if (len > 0) { dx /= len; dy /= len; }
+      p.x = clamp(p.x + dx * p.speed, F.x + p.r, F.x + F.w - p.r);
+      p.y = clamp(p.y + dy * p.speed, F.y + p.r, F.y + F.h - p.r);
+    }
+
+    function updatePlayers() {
+      let dx1=0, dy1=0;
+      if (keys['a']||keys['A']) dx1 -= 1;
+      if (keys['d']||keys['D']) dx1 += 1;
+      if (keys['w']||keys['W']) dy1 -= 1;
+      if (keys['s']||keys['S']) dy1 += 1;
+      movePlayer(p1, dx1, dy1);
+
+      let dx2=0, dy2=0;
+      if (keys['ArrowLeft'])  dx2 -= 1;
+      if (keys['ArrowRight']) dx2 += 1;
+      if (keys['ArrowUp'])    dy2 -= 1;
+      if (keys['ArrowDown'])  dy2 += 1;
+      movePlayer(p2, dx2, dy2);
+    }
+
+    function resolveCollision(p) {
+      const dx = ball.x - p.x, dy = ball.y - p.y;
+      const dist = Math.sqrt(dx*dx + dy*dy);
+      const minD = p.r + ball.r;
+      if (dist < minD && dist > 0) {
+        const nx = dx/dist, ny = dy/dist;
+        // push ball out of overlap
+        ball.x += nx * (minD - dist);
+        ball.y += ny * (minD - dist);
+        // add push velocity
+        ball.vx += nx * 5.5;
+        ball.vy += ny * 5.5;
+        // cap speed
+        const spd = Math.sqrt(ball.vx*ball.vx + ball.vy*ball.vy);
+        if (spd > 15) { ball.vx = ball.vx/spd*15; ball.vy = ball.vy/spd*15; }
+      }
+    }
+
+    function updateBall() {
+      ball.vx *= ball.friction;
+      ball.vy *= ball.friction;
+      ball.x  += ball.vx;
+      ball.y  += ball.vy;
+
+      const inMouth = ball.y > G.mouthY && ball.y < G.mouthY + G.h;
+
+      // Top / bottom walls
+      if (ball.y - ball.r < F.y)        { ball.y = F.y + ball.r;        ball.vy *= -0.8; }
+      if (ball.y + ball.r > F.y + F.h)  { ball.y = F.y + F.h - ball.r;  ball.vy *= -0.8; }
+
+      // Left / right field walls — let ball through if in goal mouth
+      if (!inMouth && ball.x - ball.r < F.x)       { ball.x = F.x + ball.r;       ball.vx *= -0.8; }
+      if (!inMouth && ball.x + ball.r > F.x + F.w)  { ball.x = F.x + F.w - ball.r; ball.vx *= -0.8; }
+
+      // Goal back walls
+      if (ball.x - ball.r < F.x - G.w)       { ball.x = F.x - G.w + ball.r;       ball.vx *= -0.8; }
+      if (ball.x + ball.r > F.x + F.w + G.w)  { ball.x = F.x + F.w + G.w - ball.r; ball.vx *= -0.8; }
+    }
+
+    function checkGoal() {
+      const inMouth = ball.y > G.mouthY && ball.y < G.mouthY + G.h;
+      if (!inMouth) return;
+      if (ball.x < F.x)        { p1.score++; triggerCelebration('Zlatan');  }
+      else if (ball.x > F.x + F.w) { p2.score++; triggerCelebration('Salomon'); }
+    }
+
+    // ── Celebration ────────────────────────────────────────────────────────────
+
+    const COLORS = ['#ff4444','#ffcc00','#44ff88','#44aaff','#ff88ff','#ffffff','#ff8800','#aa44ff'];
+
+    function spawnConfetti() {
+      confetti = [];
+      for (let i = 0; i < 90; i++) {
+        confetti.push({
+          x:  Math.random() * W,
+          y:  Math.random() * -100,
+          vx: (Math.random() - 0.5) * 3.5,
+          vy: Math.random() * 3 + 1.5,
+          r:  Math.random() * 6 + 3,
+          color: COLORS[Math.floor(Math.random() * COLORS.length)],
+          alpha: 1,
+          rot:  Math.random() * Math.PI * 2,
+          rotV: (Math.random() - 0.5) * 0.18,
+          rect: Math.random() < 0.5
+        });
+      }
+    }
+
+    function triggerCelebration(name) {
+      state = 'goal';
+      celebTimer = 180;
+      celebName  = name;
+      ball.vx = 0; ball.vy = 0;
+      spawnConfetti();
+      updateScoreDisplay();
+    }
+
+    function updateConfetti() {
+      for (const p of confetti) {
+        p.x   += p.vx;
+        p.y   += p.vy;
+        p.vy  += 0.06;
+        p.rot += p.rotV;
+        if (celebTimer < 70) p.alpha = celebTimer / 70;
+      }
+    }
+
+    // ── Reset ──────────────────────────────────────────────────────────────────
+
+    function resetPositions() {
+      ball.x = 450; ball.y = 300; ball.vx = 0; ball.vy = 0;
+      p1.x = p1.sx; p1.y = p1.sy;
+      p2.x = p2.sx; p2.y = p2.sy;
+      confetti = [];
+    }
+
+    function fullReset() {
+      p1.score = 0; p2.score = 0;
+      state = 'playing'; celebTimer = 0; celebName = '';
+      resetPositions();
+      updateScoreDisplay();
+    }
+
+    function updateScoreDisplay() {
+      document.getElementById('score-display').textContent =
+        `Zlatan  ${p1.score}  –  ${p2.score}  Salomon`;
+    }
+
+    // ── Drawing ────────────────────────────────────────────────────────────────
+
+    function drawField() {
+      // Canvas background
+      ctx.fillStyle = '#162016';
+      ctx.fillRect(0, 0, W, H);
+
+      // Grass
+      ctx.fillStyle = '#2e8b2e';
+      ctx.fillRect(F.x, F.y, F.w, F.h);
+
+      ctx.strokeStyle = 'rgba(255,255,255,0.85)';
+      ctx.lineWidth = 2;
+
+      // Boundary
+      ctx.strokeRect(F.x, F.y, F.w, F.h);
+
+      // Center line
+      ctx.beginPath();
+      ctx.moveTo(F.cx, F.y);
+      ctx.lineTo(F.cx, F.y + F.h);
+      ctx.stroke();
+
+      // Center circle
+      ctx.beginPath();
+      ctx.arc(F.cx, F.cy, F.circR, 0, Math.PI * 2);
+      ctx.stroke();
+
+      // Center dot
+      ctx.fillStyle = '#fff';
+      ctx.beginPath();
+      ctx.arc(F.cx, F.cy, 4, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Penalty boxes
+      ctx.strokeRect(F.x,              F.cy - F.penH/2, F.penW, F.penH);
+      ctx.strokeRect(F.x+F.w - F.penW, F.cy - F.penH/2, F.penW, F.penH);
+    }
+
+    function drawGoal(side) {
+      const midY  = G.mouthY + G.h / 2;   // 300
+      const outerR = G.h / 2;              // 60 — spans full mouth height
+      const innerR = outerR * 0.55;        // 33
+      const cx = side === 'left' ? F.x : F.x + F.w;
+
+      ctx.save();
+      ctx.fillStyle   = '#e07b00';
+      ctx.strokeStyle = '#ffa500';
+      ctx.lineWidth   = 2;
+
+      ctx.beginPath();
+      if (side === 'left') {
+        // Outer left D: counterclockwise arc (faces left, into the goal area)
+        ctx.arc(cx, midY, outerR, Math.PI/2, -Math.PI/2, true);
+        ctx.closePath();
+        // Inner left D: subtract with evenodd to create crescent
+        ctx.arc(cx, midY, innerR, Math.PI/2, -Math.PI/2, true);
+        ctx.closePath();
+      } else {
+        // Outer right D
+        ctx.arc(cx, midY, outerR, -Math.PI/2, Math.PI/2, false);
+        ctx.closePath();
+        // Inner right D
+        ctx.arc(cx, midY, innerR, -Math.PI/2, Math.PI/2, false);
+        ctx.closePath();
+      }
+
+      ctx.fill('evenodd');
+
+      // Stroke outer arc only
+      ctx.beginPath();
+      if (side === 'left') {
+        ctx.arc(cx, midY, outerR, Math.PI/2, -Math.PI/2, true);
+      } else {
+        ctx.arc(cx, midY, outerR, -Math.PI/2, Math.PI/2, false);
+      }
+      ctx.closePath();
+      ctx.stroke();
+
+      ctx.restore();
+    }
+
+    function drawBall() {
+      // White base
+      ctx.fillStyle = '#f0f0f0';
+      ctx.beginPath();
+      ctx.arc(ball.x, ball.y, ball.r, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Black pentagon patches (5 dots)
+      ctx.fillStyle = '#1a1a1a';
+      for (let i = 0; i < 5; i++) {
+        const a  = (i / 5) * Math.PI * 2 - Math.PI / 2;
+        const px = ball.x + Math.cos(a) * ball.r * 0.46;
+        const py = ball.y + Math.sin(a) * ball.r * 0.46;
+        ctx.beginPath();
+        ctx.arc(px, py, ball.r * 0.25, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      // Outline
+      ctx.strokeStyle = '#555';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.arc(ball.x, ball.y, ball.r, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+
+    function drawPlayer(p) {
+      ctx.save();
+
+      // Drop shadow
+      ctx.fillStyle = 'rgba(0,0,0,0.25)';
+      ctx.beginPath();
+      ctx.ellipse(p.x + 3, p.y + 5, p.r, p.r * 0.45, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Body
+      ctx.fillStyle = p.color;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Rim
+      ctx.strokeStyle = 'rgba(255,255,255,0.65)';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+
+      // Name
+      ctx.fillStyle = '#fff';
+      ctx.font = 'bold 11px Arial';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'top';
+      ctx.fillText(p.name, p.x, p.y + p.r + 4);
+
+      ctx.restore();
+    }
+
+    function drawCelebration() {
+      // Dark overlay
+      const oa = celebTimer < 70 ? (celebTimer/70) * 0.5 : 0.5;
+      ctx.fillStyle = `rgba(0,0,0,${oa})`;
+      ctx.fillRect(0, 0, W, H);
+
+      // Confetti
+      for (const c of confetti) {
+        ctx.save();
+        ctx.globalAlpha = c.alpha;
+        ctx.translate(c.x, c.y);
+        ctx.rotate(c.rot);
+        ctx.fillStyle = c.color;
+        if (c.rect) {
+          ctx.fillRect(-c.r, -c.r * 0.5, c.r * 2, c.r);
+        } else {
+          ctx.beginPath();
+          ctx.arc(0, 0, c.r, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        ctx.restore();
+      }
+
+      // Pulsing celebration text
+      const pulse     = 1 + 0.06 * Math.sin(celebTimer * 0.22);
+      const textAlpha = celebTimer < 70 ? celebTimer / 70 : 1;
+
+      ctx.save();
+      ctx.globalAlpha = textAlpha;
+      ctx.translate(W / 2, H / 2);
+      ctx.scale(pulse, pulse);
+      ctx.textAlign    = 'center';
+      ctx.textBaseline = 'middle';
+
+      // Shadow
+      ctx.font      = 'bold 54px Arial';
+      ctx.fillStyle = 'rgba(0,0,0,0.7)';
+      ctx.fillText('LÄTT SOM EN PLÄTT', 3, 3);
+
+      // Gold text
+      ctx.fillStyle = '#FFD700';
+      ctx.fillText('LÄTT SOM EN PLÄTT', 0, 0);
+
+      // Scorer name
+      ctx.font      = 'bold 26px Arial';
+      ctx.fillStyle = '#fff';
+      ctx.fillText(celebName + ' scores!', 0, 60);
+
+      ctx.restore();
+    }
+
+    // ── Render ─────────────────────────────────────────────────────────────────
+
+    function render() {
+      drawField();
+      drawGoal('left');
+      drawGoal('right');
+      drawBall();
+      drawPlayer(p1);
+      drawPlayer(p2);
+      if (state === 'goal') drawCelebration();
+    }
+
+    // ── Game Loop ──────────────────────────────────────────────────────────────
+
+    function gameLoop() {
+      if (state === 'playing') {
+        updatePlayers();
+        resolveCollision(p1);
+        resolveCollision(p2);
+        updateBall();
+        checkGoal();
+      } else if (state === 'goal') {
+        updateConfetti();
+        celebTimer--;
+        if (celebTimer <= 0) { resetPositions(); state = 'playing'; }
+      }
+      render();
+      requestAnimationFrame(gameLoop);
+    }
+
+    // ── Init ───────────────────────────────────────────────────────────────────
+
+    document.getElementById('restart-btn').addEventListener('click', fullReset);
+    updateScoreDisplay();
+    requestAnimationFrame(gameLoop);
+  </script>
+</body>
+</html>
