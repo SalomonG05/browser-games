@@ -38,10 +38,23 @@ DOM-based (no canvas). State is a 9-element array (`board`) plus a `current` pla
 
 ## Git workflow
 
-Push to GitHub (`SalomonG05/browser-games`) after every meaningful change:
+**Commit and push after every meaningful change.** Never leave work uncommitted — if something breaks later, the last push is the safe restore point.
+
+When to commit:
+- After adding a new feature or game mechanic
+- After fixing a bug
+- After any visual or structural change the user asked for
+- Before starting a risky refactor (so there's a clean rollback point)
 
 ```bash
 git add <file>
 git commit -m "Descriptive message"
 git push
 ```
+
+Commit message style — be specific about what changed and why:
+- `Add player speed boost on ball contact`
+- `Fix ball tunneling through goal back wall`
+- `Add celebration sound effect`
+
+Repo: `SalomonG05/browser-games` on GitHub.
