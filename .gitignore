@@ -15,3 +15,7 @@ desktop.ini
 # Temp files
 *.tmp
 *.bak
+
+# Node
+node_modules/
+player-face-generator/.env

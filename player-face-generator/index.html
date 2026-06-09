@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FM Face Generator</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: #0f1923;
+      color: #e8eaed;
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 48px 20px 60px;
+    }
+
+    header {
+      text-align: center;
+      margin-bottom: 36px;
+    }
+
+    header h1 {
+      font-size: 26px;
+      font-weight: 700;
+      letter-spacing: -0.3px;
+      color: #fff;
+    }
+
+    header h1 span { color: #00a651; }
+
+    header p {
+      color: #607080;
+      font-size: 13px;
+      margin-top: 6px;
+    }
+
+    .card {
+      background: #1a2837;
+      border: 1px solid #253447;
+      border-radius: 12px;
+      padding: 28px;
+      width: 100%;
+      max-width: 460px;
+    }
+
+    label {
+      display: block;
+      font-size: 11px;
+      font-weight: 700;
+      color: #607080;
+      text-transform: uppercase;
+      letter-spacing: 0.7px;
+      margin-bottom: 10px;
+    }
+
+    textarea {
+      width: 100%;
+      background: #0f1923;
+      border: 1px solid #253447;
+      border-radius: 8px;
+      color: #e8eaed;
+      font-size: 14px;
+      font-family: inherit;
+      line-height: 1.55;
+      padding: 13px 14px;
+      resize: none;
+      height: 100px;
+      outline: none;
+      transition: border-color 0.18s;
+    }
+
+    textarea:focus { border-color: #00a651; }
+
+    textarea::placeholder { color: #384858; }
+
+    .hint {
+      font-size: 11px;
+      color: #384858;
+      margin-top: 8px;
+    }
+
+    button.generate {
+      width: 100%;
+      margin-top: 16px;
+      padding: 13px;
+      background: #00a651;
+      color: #fff;
+      font-size: 14px;
+      font-weight: 700;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      letter-spacing: 0.2px;
+      transition: background 0.18s, transform 0.1s;
+    }
+
+    button.generate:hover:not(:disabled) { background: #00bf5e; }
+    button.generate:active:not(:disabled) { transform: scale(0.99); }
+
+    button.generate:disabled {
+      background: #1a4030;
+      color: #3a6048;
+      cursor: not-allowed;
+    }
+
+    .status {
+      text-align: center;
+      font-size: 12px;
+      color: #607080;
+      margin-top: 12px;
+      min-height: 16px;
+    }
+
+    .status.error { color: #e05555; }
+
+    /* result */
+    .result {
+      margin-top: 26px;
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .result.visible { display: flex; }
+
+    /* checkerboard background signals transparency */
+    .image-frame {
+      width: 256px;
+      height: 256px;
+      border-radius: 8px;
+      overflow: hidden;
+      background: repeating-conic-gradient(#253447 0% 25%, #1e3040 0% 50%) 0 0 / 14px 14px;
+      border: 1px solid #253447;
+      flex-shrink: 0;
+    }
+
+    .image-frame img {
+      width: 256px;
+      height: 256px;
+      display: block;
+    }
+
+    .actions { display: flex; gap: 10px; }
+
+    .actions button {
+      padding: 9px 20px;
+      border-radius: 6px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      border: none;
+      transition: background 0.15s;
+    }
+
+    button.btn-download { background: #00a651; color: #fff; }
+    button.btn-download:hover { background: #00bf5e; }
+
+    button.btn-copy { background: #253447; color: #c0ccd8; }
+    button.btn-copy:hover { background: #2e4060; }
+
+    .spinner {
+      display: inline-block;
+      width: 13px;
+      height: 13px;
+      border: 2px solid #2a5040;
+      border-top-color: #00a651;
+      border-radius: 50%;
+      animation: spin 0.65s linear infinite;
+      vertical-align: middle;
+      margin-right: 6px;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+
+  <header>
+    <h1>FM <span>Face</span> Generator</h1>
+    <p>Generate fictional Football Manager-style player portraits</p>
+  </header>
+
+  <div class="card">
+    <label for="desc">Player Description</label>
+    <textarea
+      id="desc"
+      placeholder="e.g. 17-year-old Swedish attacking midfielder, blond hair, confident expression, athletic face."
+      maxlength="400"
+    ></textarea>
+    <p class="hint">Describe a fictional player — age, nationality, position, hair, expression. Ctrl+Enter to generate.</p>
+
+    <button class="generate" id="generateBtn" onclick="generate()">Generate Portrait</button>
+    <p class="status" id="status"></p>
+
+    <div class="result" id="result">
+      <div class="image-frame">
+        <img id="output" src="" alt="Generated player face" />
+      </div>
+      <div class="actions">
+        <button class="btn-download" onclick="downloadPng()">Download PNG</button>
+        <button class="btn-copy" id="copyBtn" onclick="copyImage()">Copy Image</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let currentBase64 = null;
+
+    async function generate() {
+      const desc = document.getElementById('desc').value.trim();
+      if (!desc) { setStatus('Please enter a player description.', true); return; }
+
+      const btn = document.getElementById('generateBtn');
+      btn.disabled = true;
+      setStatus('<span class="spinner"></span>Generating portrait…');
+      document.getElementById('result').classList.remove('visible');
+      currentBase64 = null;
+
+      try {
+        const res = await fetch('/api/generate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ description: desc }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Generation failed.');
+
+        currentBase64 = data.image;
+        document.getElementById('output').src = `data:image/png;base64,${data.image}`;
+        document.getElementById('result').classList.add('visible');
+        setStatus('');
+      } catch (err) {
+        setStatus(err.message, true);
+      } finally {
+        btn.disabled = false;
+      }
+    }
+
+    function downloadPng() {
+      if (!currentBase64) return;
+      const canvas = document.createElement('canvas');
+      canvas.width = 256;
+      canvas.height = 256;
+      const ctx = canvas.getContext('2d');
+      const img = new Image();
+      img.onload = () => {
+        ctx.clearRect(0, 0, 256, 256);
+        ctx.drawImage(img, 0, 0, 256, 256);
+        canvas.toBlob(blob => {
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = 'player-face.png';
+          a.click();
+          URL.revokeObjectURL(url);
+        }, 'image/png');
+      };
+      img.src = `data:image/png;base64,${currentBase64}`;
+    }
+
+    async function copyImage() {
+      if (!currentBase64) return;
+      const btn = document.getElementById('copyBtn');
+      try {
+        const res = await fetch(`data:image/png;base64,${currentBase64}`);
+        const blob = await res.blob();
+        await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+        btn.textContent = 'Copied!';
+      } catch {
+        btn.textContent = 'Copy failed';
+      }
+      setTimeout(() => { btn.textContent = 'Copy Image'; }, 2000);
+    }
+
+    function setStatus(html, isError = false) {
+      const el = document.getElementById('status');
+      el.innerHTML = html;
+      el.className = 'status' + (isError ? ' error' : '');
+    }
+
+    document.getElementById('desc').addEventListener('keydown', e => {
+      if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) generate();
+    });
+  </script>
+
+</body>
+</html>
