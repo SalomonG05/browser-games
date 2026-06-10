@@ -4,7 +4,6 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 const { v4: uuidv4 } = require('uuid');
-const Anthropic = require('@anthropic-ai/sdk');
 
 const app = express();
 const PORT = process.env.PORT || 3003;
@@ -256,42 +255,6 @@ const GRADING_SCHEMA = {
   additionalProperties: false,
 };
 
-function sdkSupportsOutputConfig() {
-  try {
-    const pkgFile = path.join(path.dirname(require.resolve('@anthropic-ai/sdk')), 'package.json');
-    const ver = JSON.parse(fs.readFileSync(pkgFile)).version;
-    const [major, minor] = ver.split('.').map(Number);
-    return major > 0 || (major === 0 && minor >= 39);
-  } catch {
-    return false;
-  }
-}
-
-const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
-const USE_OUTPUT_CONFIG = sdkSupportsOutputConfig();
-
-async function callClaude(system, user) {
-  const params = {
-    model: 'claude-sonnet-4-6',
-    max_tokens: 4096,
-    system,
-    messages: [{ role: 'user', content: user }],
-  };
-  if (USE_OUTPUT_CONFIG) {
-    params.output_config = { format: { type: 'json_schema', schema: GRADING_SCHEMA } };
-  }
-  const response = await anthropic.messages.create(params);
-  const text = response.content[0].text;
-  try {
-    return JSON.parse(text);
-  } catch {
-    // strip possible markdown fences
-    const match = text.match(/```(?:json)?\s*([\s\S]*?)```/);
-    if (match) return JSON.parse(match[1]);
-    throw new Error('Claude returnerade inte giltig JSON');
-  }
-}
-
 function buildSystemPrompt(primaryMaterials, supportMaterials, hasRubric) {
   const primaryBlock = primaryMaterials.map(m =>
     `### ${m.name} (${m.category})\n${m.text}`
@@ -333,6 +296,12 @@ STUDENTSVAR:
 ${studentText}
 
 Rätta studentsvaret mot ovanstående material och returnera bedömningen som JSON.`;
+}
+
+function buildCombinedPrompt(primaryMats, supportMats, hasRubric, examText, studentText) {
+  const system = buildSystemPrompt(primaryMats, supportMats, hasRubric);
+  const user = buildUserMessage(examText, studentText);
+  return `${system}\n\n---\n\n${user}`;
 }
 
 function truncateToLimit(texts, limit) {
@@ -385,27 +354,40 @@ app.post('/api/grade', async (req, res) => {
 
   const ctx = await enrichWithQura({ primaryMats, supportMats, examMat, studentMat });
 
-  const system = buildSystemPrompt(ctx.primaryMats, ctx.supportMats, hasRubric);
-  const user = buildUserMessage(ctx.examMat.text, ctx.studentMat.text);
-
-  let result;
-  try {
-    result = await callClaude(system, user);
-  } catch (e) {
-    return res.status(500).json({ error: `Claude-fel: ${e.message}` });
-  }
+  const promptText = buildCombinedPrompt(
+    ctx.primaryMats, ctx.supportMats, hasRubric,
+    ctx.examMat.text, ctx.studentMat.text
+  );
 
   const materialsUsed = [
     ...ctx.primaryMats.map(m => ({ materialId: m.id, name: m.name, category: m.category, role: 'PRIMARY' })),
     ...ctx.supportMats.map(m => ({ materialId: m.id, name: m.name, category: m.category, role: 'SUPPORT' })),
   ];
 
-  res.json({ result, materialsUsed, quraAnnotations: null });
+  res.json({ promptText, materialsUsed, quraAnnotations: null });
+});
+
+app.post('/api/parse-result', (req, res) => {
+  let { text } = req.body;
+  if (!text || !text.trim()) return res.status(400).json({ error: 'Ingen text angiven' });
+  const fenceMatch = text.match(/```(?:json)?\s*([\s\S]*?)```/);
+  if (fenceMatch) text = fenceMatch[1];
+  let result;
+  try {
+    result = JSON.parse(text.trim());
+  } catch {
+    return res.status(400).json({ error: 'Ogiltig JSON — kontrollera att du kopierade hela svaret från Claude' });
+  }
+  const missing = GRADING_SCHEMA.required.filter(k => !(k in result));
+  if (missing.length) {
+    return res.status(400).json({ error: `Svaret saknar fält: ${missing.join(', ')}. Kopiera hela Claude-svaret.` });
+  }
+  res.json({ result });
 });
 
 // ─── Start ────────────────────────────────────────────────────────────────────
 
 app.listen(PORT, () => {
   console.log(`Juridisk tentaträning → http://localhost:${PORT}`);
-  console.log(`SDK output_config: ${USE_OUTPUT_CONFIG ? 'aktiverat' : 'fallback (JSON via prompt)'}`);
+  console.log('Läge: manuell AI via claude.ai (ingen API-nyckel krävs)');
 });

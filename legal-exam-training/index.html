@@ -296,6 +296,36 @@
 
   .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
   @media (max-width: 600px) { .two-col { grid-template-columns: 1fr; } }
+
+  /* Prompt panel */
+  #prompt-panel { display: none; margin-top: 16px; }
+  #prompt-panel.open { display: block; }
+  .step-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 10px;
+  }
+  .step-badge {
+    background: var(--accent2);
+    border-radius: 50%;
+    color: #fff;
+    font-size: 0.75rem;
+    font-weight: 700;
+    height: 22px;
+    line-height: 22px;
+    text-align: center;
+    width: 22px;
+    flex-shrink: 0;
+  }
+  .step-header h3 { font-size: 0.95rem; margin: 0; }
+  .prompt-actions { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+  .hint-text { color: var(--muted); font-size: 0.82rem; margin-top: 8px; line-height: 1.5; }
+  .step-divider {
+    border: none;
+    border-top: 1px solid var(--border);
+    margin: 18px 0;
+  }
 </style>
 </head>
 <body>
@@ -382,9 +412,41 @@
     </div>
 
     <div style="margin-top:16px">
-      <button id="grade-btn" onclick="runGrading()">Rätta</button>
-      <span id="grade-spinner" style="display:none;margin-left:10px"><span class="spinner"></span> Rättar…</span>
+      <button id="grade-btn" onclick="runGrading()">Förbered rättning</button>
+      <span id="grade-spinner" style="display:none;margin-left:10px"><span class="spinner"></span> Förbereder…</span>
       <div id="grade-error" class="error-msg"></div>
+    </div>
+  </div>
+
+  <!-- Prompt panel: visas efter "Förbered rättning" -->
+  <div id="prompt-panel" class="card">
+    <div class="step-header">
+      <span class="step-badge">1</span>
+      <h3>Kopiera prompten och klistra in i Claude.ai</h3>
+    </div>
+    <textarea id="prompt-textarea" readonly style="min-height:180px;font-size:0.78rem;opacity:.85"></textarea>
+    <div class="prompt-actions">
+      <button onclick="copyPrompt()">Kopiera prompt</button>
+      <a href="https://claude.ai" target="_blank" rel="noopener" style="text-decoration:none">
+        <button class="secondary">Öppna Claude.ai →</button>
+      </a>
+      <button class="secondary" onclick="resetGrading()">Börja om</button>
+    </div>
+    <p class="hint-text">
+      Klistra in hela prompten i ett nytt Claude.ai-samtal. Claude svarar med ett JSON-objekt —
+      kopiera <strong>hela</strong> svaret (inklusive klamrarna) och klistra in nedan.
+    </p>
+
+    <hr class="step-divider">
+
+    <div class="step-header">
+      <span class="step-badge">2</span>
+      <h3>Klistra in Claude:s svar</h3>
+    </div>
+    <textarea id="paste-textarea" placeholder='Klistra in hela JSON-svaret från Claude här…' style="min-height:140px"></textarea>
+    <div id="paste-error" class="error-msg"></div>
+    <div class="prompt-actions" style="margin-top:10px">
+      <button onclick="analyzeResult()">Analysera svar</button>
     </div>
   </div>
 
@@ -473,6 +535,7 @@ let allMaterials = [];
 let textModalMatId = null;
 let renameModalTarget = null;
 let renameModalType = null; // 'course' | 'material'
+let pendingMaterialsUsed = [];
 
 const CATEGORY_LABELS = {
   study: 'Eget studiematerial',
@@ -699,6 +762,7 @@ async function saveRename() {
 function renderGradeView() {
   document.getElementById('grade-course-name').textContent = activeCourseNameStr || '(ingen kurs vald)';
   document.getElementById('result-panel').classList.remove('open');
+  document.getElementById('prompt-panel').classList.remove('open');
   document.getElementById('grade-error').textContent = '';
 
   if (!activeCourseId) {
@@ -757,6 +821,7 @@ async function runGrading() {
   document.getElementById('grade-btn').disabled = true;
   document.getElementById('grade-spinner').style.display = 'inline';
   document.getElementById('result-panel').classList.remove('open');
+  document.getElementById('prompt-panel').classList.remove('open');
 
   try {
     const data = await api('POST', '/api/grade', {
@@ -764,13 +829,52 @@ async function runGrading() {
       studentAnswerId: studentId,
       selectedMaterialIds: selectedIds,
     });
-    renderResult(data);
+    pendingMaterialsUsed = data.materialsUsed;
+    document.getElementById('prompt-textarea').value = data.promptText;
+    document.getElementById('paste-textarea').value = '';
+    document.getElementById('paste-error').textContent = '';
+    document.getElementById('prompt-panel').classList.add('open');
+    document.getElementById('prompt-panel').scrollIntoView({ behavior: 'smooth', block: 'start' });
   } catch (e) {
     document.getElementById('grade-error').textContent = e.message;
   } finally {
     document.getElementById('grade-btn').disabled = false;
     document.getElementById('grade-spinner').style.display = 'none';
   }
+}
+
+async function analyzeResult() {
+  const text = document.getElementById('paste-textarea').value.trim();
+  document.getElementById('paste-error').textContent = '';
+  if (!text) {
+    document.getElementById('paste-error').textContent = 'Klistra in Claude:s svar innan du analyserar.';
+    return;
+  }
+  try {
+    const data = await api('POST', '/api/parse-result', { text });
+    renderResult({ result: data.result, materialsUsed: pendingMaterialsUsed });
+  } catch (e) {
+    document.getElementById('paste-error').textContent = e.message;
+  }
+}
+
+function copyPrompt() {
+  const text = document.getElementById('prompt-textarea').value;
+  navigator.clipboard.writeText(text).then(() => {
+    const btn = event.currentTarget;
+    const orig = btn.textContent;
+    btn.textContent = 'Kopierat!';
+    setTimeout(() => { btn.textContent = orig; }, 1800);
+  }).catch(() => {
+    document.getElementById('prompt-textarea').select();
+    document.execCommand('copy');
+  });
+}
+
+function resetGrading() {
+  document.getElementById('prompt-panel').classList.remove('open');
+  document.getElementById('result-panel').classList.remove('open');
+  pendingMaterialsUsed = [];
 }
 
 function renderResult({ result, materialsUsed }) {
