@@ -1,0 +1,875 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Juridisk Tentaträning</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #1a1a2e;
+    --surface: #16213e;
+    --card: #0f3460;
+    --accent: #e94560;
+    --accent2: #533483;
+    --text: #eaeaea;
+    --muted: #8888aa;
+    --border: #2a2a4a;
+    --success: #4caf50;
+    --warn: #ff9800;
+    --danger: #f44336;
+    --primary-tag: #e94560;
+    --support-tag: #533483;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    font-size: 15px;
+    min-height: 100vh;
+  }
+
+  header {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 14px 24px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  header h1 { font-size: 1.2rem; font-weight: 700; color: var(--accent); }
+  header span { color: var(--muted); font-size: 0.85rem; }
+
+  nav {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    padding: 0 24px;
+  }
+  nav button {
+    background: none;
+    border: none;
+    border-bottom: 3px solid transparent;
+    color: var(--muted);
+    cursor: pointer;
+    font-size: 0.9rem;
+    padding: 12px 20px;
+    transition: color .2s, border-color .2s;
+  }
+  nav button.active { color: var(--text); border-bottom-color: var(--accent); }
+  nav button:hover:not(.active) { color: var(--text); }
+
+  main { padding: 24px; max-width: 960px; margin: 0 auto; }
+
+  .view { display: none; }
+  .view.active { display: block; }
+
+  h2 { font-size: 1.1rem; font-weight: 600; margin-bottom: 16px; }
+
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px;
+    margin-bottom: 12px;
+  }
+
+  input[type=text], select, textarea {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text);
+    font-size: 0.9rem;
+    padding: 8px 12px;
+    width: 100%;
+    outline: none;
+    transition: border-color .2s;
+  }
+  input[type=text]:focus, select:focus, textarea:focus { border-color: var(--accent); }
+  textarea { resize: vertical; min-height: 120px; font-family: inherit; }
+
+  .row { display: flex; gap: 8px; align-items: flex-start; margin-bottom: 12px; }
+  .row input, .row select { flex: 1; }
+
+  button {
+    background: var(--accent);
+    border: none;
+    border-radius: 6px;
+    color: #fff;
+    cursor: pointer;
+    font-size: 0.85rem;
+    padding: 8px 14px;
+    transition: opacity .2s;
+    white-space: nowrap;
+  }
+  button:hover { opacity: .85; }
+  button.secondary {
+    background: var(--card);
+    color: var(--text);
+  }
+  button.danger {
+    background: var(--danger);
+  }
+  button:disabled { opacity: .4; cursor: not-allowed; }
+
+  .tag {
+    display: inline-block;
+    border-radius: 4px;
+    font-size: 0.72rem;
+    font-weight: 600;
+    padding: 2px 7px;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+  }
+  .tag-primary { background: var(--primary-tag); }
+  .tag-support { background: var(--support-tag); }
+  .tag-inactive { background: #444; color: #aaa; }
+  .tag-active { background: #1e4d2b; color: #4caf50; }
+
+  /* Course list */
+  .course-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 14px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    margin-bottom: 8px;
+    cursor: pointer;
+    transition: border-color .2s;
+  }
+  .course-item:hover { border-color: var(--accent2); }
+  .course-item.selected { border-color: var(--accent); background: #1f1f3a; }
+  .course-item .name { flex: 1; font-weight: 500; }
+  .course-item .date { color: var(--muted); font-size: 0.8rem; }
+
+  /* Material list */
+  .cat-section { margin-bottom: 20px; }
+  .cat-section h3 {
+    color: var(--muted);
+    font-size: 0.78rem;
+    font-weight: 600;
+    letter-spacing: .08em;
+    margin-bottom: 8px;
+    text-transform: uppercase;
+  }
+  .mat-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 9px 12px;
+    background: var(--card);
+    border-radius: 6px;
+    margin-bottom: 6px;
+    transition: opacity .2s;
+  }
+  .mat-item.inactive { opacity: .55; }
+  .mat-item .mat-name { flex: 1; font-size: 0.9rem; }
+
+  /* Upload area */
+  .drop-zone {
+    border: 2px dashed var(--border);
+    border-radius: 8px;
+    padding: 28px;
+    text-align: center;
+    color: var(--muted);
+    cursor: pointer;
+    transition: border-color .2s, background .2s;
+    margin-bottom: 12px;
+  }
+  .drop-zone:hover, .drop-zone.over {
+    border-color: var(--accent);
+    background: rgba(233,69,96,.05);
+    color: var(--text);
+  }
+  .drop-zone input { display: none; }
+
+  /* Modal */
+  .overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,.65);
+    z-index: 100;
+    align-items: center;
+    justify-content: center;
+  }
+  .overlay.open { display: flex; }
+  .modal {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 24px;
+    width: min(640px, 95vw);
+    max-height: 90vh;
+    overflow-y: auto;
+  }
+  .modal h3 { margin-bottom: 14px; font-size: 1rem; }
+  .modal-footer { display: flex; gap: 8px; margin-top: 16px; justify-content: flex-end; }
+
+  /* Grading result */
+  #result-panel { display: none; }
+  #result-panel.open { display: block; margin-top: 24px; }
+
+  .score-box {
+    background: var(--card);
+    border-radius: 8px;
+    padding: 20px;
+    text-align: center;
+    margin-bottom: 20px;
+  }
+  .score-num { font-size: 2.8rem; font-weight: 700; color: var(--accent); }
+  .score-lbl { color: var(--muted); margin-top: 4px; }
+  .level-lbl { font-size: 1.1rem; font-weight: 600; color: var(--warn); }
+
+  .result-section { margin-bottom: 20px; }
+  .result-section h3 {
+    font-size: 0.85rem;
+    font-weight: 700;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 10px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid var(--border);
+  }
+  .result-item {
+    padding: 8px 12px;
+    background: var(--card);
+    border-radius: 6px;
+    margin-bottom: 6px;
+  }
+  .result-item .item-text { margin-bottom: 4px; line-height: 1.5; }
+  .result-item .item-sources { color: var(--muted); font-size: 0.78rem; }
+
+  .result-prose {
+    background: var(--card);
+    border-radius: 6px;
+    line-height: 1.6;
+    padding: 12px;
+    white-space: pre-wrap;
+  }
+
+  .materials-used { display: flex; flex-wrap: wrap; gap: 8px; }
+  .mat-used-chip {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    font-size: 0.78rem;
+    padding: 4px 10px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .spinner {
+    display: inline-block;
+    width: 18px; height: 18px;
+    border: 2px solid rgba(255,255,255,.3);
+    border-top-color: #fff;
+    border-radius: 50%;
+    animation: spin .7s linear infinite;
+    vertical-align: middle;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .empty { color: var(--muted); font-size: 0.88rem; padding: 10px 0; }
+  .error-msg { color: var(--danger); font-size: 0.88rem; margin-top: 8px; }
+
+  label { font-size: 0.85rem; color: var(--muted); display: block; margin-bottom: 4px; }
+  .form-group { margin-bottom: 14px; }
+
+  .checkbox-list { display: flex; flex-direction: column; gap: 6px; }
+  .checkbox-list label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--text);
+    cursor: pointer;
+    font-size: 0.88rem;
+    margin: 0;
+  }
+  .checkbox-list input[type=checkbox] { accent-color: var(--accent); width: 15px; height: 15px; }
+
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  @media (max-width: 600px) { .two-col { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Juridisk Tentaträning</h1>
+  <span id="active-course-label">Ingen kurs vald</span>
+</header>
+
+<nav>
+  <button class="active" onclick="switchView('courses')">Kurser</button>
+  <button onclick="switchView('materials')">Material</button>
+  <button onclick="switchView('grade')">Rättning</button>
+</nav>
+
+<main>
+
+<!-- ═══ VIEW: COURSES ═══ -->
+<div class="view active" id="view-courses">
+  <h2>Kurser</h2>
+  <div class="row">
+    <input type="text" id="new-course-name" placeholder="Kursnamn…" onkeydown="if(event.key==='Enter') createCourse()">
+    <button onclick="createCourse()">Skapa kurs</button>
+  </div>
+  <div id="courses-list"></div>
+</div>
+
+<!-- ═══ VIEW: MATERIALS ═══ -->
+<div class="view" id="view-materials">
+  <h2>Material — <span id="mat-course-name" style="color:var(--muted)">välj kurs</span></h2>
+
+  <div class="card">
+    <div class="form-group">
+      <label>Kategori</label>
+      <select id="upload-category">
+        <option value="exam_question">Tentafråga</option>
+        <option value="student_answer">Studentsvar</option>
+        <option value="grading_rubric">Poängmall / rättningsmatris</option>
+        <option value="model_answer">Modellsvar</option>
+        <option value="teacher_comment">Lärarkommentar</option>
+        <option value="study">Eget studiematerial</option>
+        <option value="legal_source">Rättskälla</option>
+      </select>
+    </div>
+    <div class="drop-zone" id="drop-zone" onclick="document.getElementById('file-input').click()"
+         ondragover="event.preventDefault();this.classList.add('over')"
+         ondragleave="this.classList.remove('over')"
+         ondrop="handleDrop(event)">
+      <input type="file" id="file-input" accept=".pdf,.docx,.txt" onchange="handleFileSelect(event)">
+      Dra och släpp fil här, eller klicka för att välja<br>
+      <small>(PDF, DOCX, TXT — max 10 MB)</small>
+    </div>
+    <div id="upload-error" class="error-msg"></div>
+  </div>
+
+  <div id="materials-list"></div>
+</div>
+
+<!-- ═══ VIEW: GRADE ═══ -->
+<div class="view" id="view-grade">
+  <h2>Rättning — <span id="grade-course-name" style="color:var(--muted)">välj kurs</span></h2>
+
+  <div class="card">
+    <div class="two-col">
+      <div class="form-group">
+        <label>Tentafråga</label>
+        <select id="sel-exam"></select>
+      </div>
+      <div class="form-group">
+        <label>Studentsvar</label>
+        <select id="sel-student"></select>
+      </div>
+    </div>
+
+    <div class="two-col" style="margin-top:4px">
+      <div>
+        <label style="margin-bottom:8px">Primärmaterial (välj vad som ska väga tyngst)</label>
+        <div class="checkbox-list" id="check-primary"></div>
+      </div>
+      <div>
+        <label style="margin-bottom:8px">Sekundärmaterial (stöd)</label>
+        <div class="checkbox-list" id="check-support"></div>
+      </div>
+    </div>
+
+    <div style="margin-top:16px">
+      <button id="grade-btn" onclick="runGrading()">Rätta</button>
+      <span id="grade-spinner" style="display:none;margin-left:10px"><span class="spinner"></span> Rättar…</span>
+      <div id="grade-error" class="error-msg"></div>
+    </div>
+  </div>
+
+  <div id="result-panel">
+    <div class="score-box" id="score-box"></div>
+
+    <div class="result-section">
+      <h3>Styrkor</h3>
+      <div id="res-strengths"></div>
+    </div>
+    <div class="result-section">
+      <h3>Saknade moment</h3>
+      <div id="res-missing"></div>
+    </div>
+    <div class="result-section">
+      <h3>Felaktigheter</h3>
+      <div id="res-errors"></div>
+    </div>
+
+    <div class="two-col">
+      <div class="result-section">
+        <h3>Saknade lagrum</h3>
+        <div id="res-lagrum"></div>
+      </div>
+      <div class="result-section">
+        <h3>Saknade rättsfall</h3>
+        <div id="res-rattsfall"></div>
+      </div>
+    </div>
+
+    <div class="result-section">
+      <h3>Förbättrad disposition</h3>
+      <div class="result-prose" id="res-disposition"></div>
+    </div>
+    <div class="result-section">
+      <h3>Modellformulering</h3>
+      <div class="result-prose" id="res-model"></div>
+    </div>
+    <div class="result-section">
+      <h3>Nästa steg för studenten</h3>
+      <div class="result-prose" id="res-next"></div>
+    </div>
+
+    <div class="result-section">
+      <h3>Material som användes</h3>
+      <div class="materials-used" id="res-used"></div>
+    </div>
+  </div>
+</div>
+
+</main>
+
+<!-- ═══ MODAL: Text preview / edit ═══ -->
+<div class="overlay" id="text-modal">
+  <div class="modal">
+    <h3 id="text-modal-title">Extraherad text</h3>
+    <p style="color:var(--muted);font-size:.82rem;margin-bottom:10px">
+      Du kan redigera texten om extraheringen innehåller fel. Spara när du är nöjd.
+    </p>
+    <textarea id="text-modal-area" style="min-height:280px"></textarea>
+    <div id="text-modal-error" class="error-msg"></div>
+    <div class="modal-footer">
+      <button class="secondary" onclick="closeTextModal()">Avbryt</button>
+      <button onclick="saveText()">Spara text</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ MODAL: Rename ═══ -->
+<div class="overlay" id="rename-modal">
+  <div class="modal">
+    <h3>Byt namn</h3>
+    <input type="text" id="rename-input" onkeydown="if(event.key==='Enter') saveRename()">
+    <div class="modal-footer">
+      <button class="secondary" onclick="closeRenameModal()">Avbryt</button>
+      <button onclick="saveRename()">Spara</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ─── State ────────────────────────────────────────────────────────────────────
+let activeCourseId = null;
+let activeCourseNameStr = '';
+let allMaterials = [];
+let textModalMatId = null;
+let renameModalTarget = null;
+let renameModalType = null; // 'course' | 'material'
+
+const CATEGORY_LABELS = {
+  study: 'Eget studiematerial',
+  grading_rubric: 'Poängmall / rättningsmatris',
+  model_answer: 'Modellsvar',
+  teacher_comment: 'Lärarkommentar',
+  exam_question: 'Tentafråga',
+  student_answer: 'Studentsvar',
+  legal_source: 'Rättskälla',
+};
+
+const CATEGORY_ORDER = [
+  'exam_question','student_answer','grading_rubric','model_answer',
+  'teacher_comment','study','legal_source'
+];
+
+const PRIMARY_CATS = new Set(['grading_rubric','model_answer','teacher_comment']);
+const SUPPORT_CATS = new Set(['study','legal_source']);
+
+// ─── Navigation ───────────────────────────────────────────────────────────────
+function switchView(name) {
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  document.querySelectorAll('nav button').forEach(b => b.classList.remove('active'));
+  document.getElementById(`view-${name}`).classList.add('active');
+  event.currentTarget.classList.add('active');
+  if (name === 'materials') renderMaterials();
+  if (name === 'grade') renderGradeView();
+}
+
+// ─── Courses ──────────────────────────────────────────────────────────────────
+async function loadCourses() {
+  const courses = await api('GET', '/api/courses');
+  const list = document.getElementById('courses-list');
+  if (!courses.length) {
+    list.innerHTML = '<div class="empty">Inga kurser ännu.</div>';
+    return;
+  }
+  list.innerHTML = courses.map(c => `
+    <div class="course-item ${c.id === activeCourseId ? 'selected' : ''}" onclick="selectCourse('${c.id}','${escHtml(c.name)}')">
+      <span class="name">${escHtml(c.name)}</span>
+      <span class="date">${fmtDate(c.createdAt)}</span>
+      <button class="secondary" style="padding:5px 10px" onclick="event.stopPropagation();openRenameModal('course','${c.id}','${escHtml(c.name)}')">✏️</button>
+      <button class="danger" style="padding:5px 10px" onclick="event.stopPropagation();deleteCourse('${c.id}')">✕</button>
+    </div>`).join('');
+}
+
+async function createCourse() {
+  const inp = document.getElementById('new-course-name');
+  const name = inp.value.trim();
+  if (!name) return;
+  await api('POST', '/api/courses', { name });
+  inp.value = '';
+  await loadCourses();
+}
+
+function selectCourse(id, name) {
+  activeCourseId = id;
+  activeCourseNameStr = name;
+  document.getElementById('active-course-label').textContent = name;
+  loadCourses();
+}
+
+async function deleteCourse(id) {
+  if (!confirm('Ta bort kursen och allt dess material?')) return;
+  await api('DELETE', `/api/courses/${id}`);
+  if (activeCourseId === id) {
+    activeCourseId = null;
+    activeCourseNameStr = '';
+    document.getElementById('active-course-label').textContent = 'Ingen kurs vald';
+  }
+  await loadCourses();
+}
+
+// ─── Materials ────────────────────────────────────────────────────────────────
+async function loadMaterials() {
+  if (!activeCourseId) { allMaterials = []; return; }
+  allMaterials = await api('GET', `/api/courses/${activeCourseId}/materials`);
+}
+
+function renderMaterials() {
+  document.getElementById('mat-course-name').textContent = activeCourseNameStr || '(ingen kurs vald)';
+  const list = document.getElementById('materials-list');
+  if (!activeCourseId) {
+    list.innerHTML = '<div class="empty">Välj en kurs i fliken Kurser.</div>';
+    return;
+  }
+  loadMaterials().then(() => {
+    if (!allMaterials.length) {
+      list.innerHTML = '<div class="empty">Inga material uppladdade ännu.</div>';
+      return;
+    }
+    const grouped = {};
+    CATEGORY_ORDER.forEach(c => { grouped[c] = []; });
+    allMaterials.forEach(m => { if (grouped[m.category]) grouped[m.category].push(m); });
+
+    list.innerHTML = CATEGORY_ORDER.filter(c => grouped[c].length).map(cat => `
+      <div class="cat-section">
+        <h3>${CATEGORY_LABELS[cat]}</h3>
+        ${grouped[cat].map(m => `
+          <div class="mat-item ${m.active ? '' : 'inactive'}">
+            <span class="mat-name">${escHtml(m.name)}</span>
+            <span class="tag ${m.active ? 'tag-active' : 'tag-inactive'}">${m.active ? 'Aktiv' : 'Inaktiv'}</span>
+            <button class="secondary" style="padding:5px 9px" title="Förhandsgranska/redigera text" onclick="openTextModal('${m.id}','${escHtml(m.name)}')">📄</button>
+            <button class="secondary" style="padding:5px 9px" title="Byt namn" onclick="openRenameModal('material','${m.id}','${escHtml(m.name)}')">✏️</button>
+            <button class="secondary" style="padding:5px 9px" title="${m.active ? 'Inaktivera' : 'Aktivera'}" onclick="toggleActive('${m.id}',${m.active})">${m.active ? '⏸' : '▶'}</button>
+            <button class="danger" style="padding:5px 9px" title="Ta bort" onclick="deleteMaterial('${m.id}')">✕</button>
+          </div>`).join('')}
+      </div>`).join('');
+  });
+}
+
+async function handleFileSelect(event) {
+  const file = event.target.files[0];
+  if (file) await uploadFile(file);
+  event.target.value = '';
+}
+
+function handleDrop(event) {
+  event.preventDefault();
+  document.getElementById('drop-zone').classList.remove('over');
+  const file = event.dataTransfer.files[0];
+  if (file) uploadFile(file);
+}
+
+async function uploadFile(file) {
+  if (!activeCourseId) {
+    showUploadError('Välj en kurs först.');
+    return;
+  }
+  showUploadError('');
+  const category = document.getElementById('upload-category').value;
+  const fd = new FormData();
+  fd.append('file', file);
+  fd.append('category', category);
+  fd.append('name', file.name.replace(/\.[^.]+$/, ''));
+
+  let mat;
+  try {
+    mat = await apiFd('POST', `/api/courses/${activeCourseId}/materials`, fd);
+  } catch (e) {
+    showUploadError(e.message);
+    return;
+  }
+  // Open text preview modal immediately after upload
+  textModalMatId = mat.id;
+  document.getElementById('text-modal-title').textContent = `Extraherad text — ${mat.name}`;
+  document.getElementById('text-modal-area').value = mat.extractedText || '';
+  document.getElementById('text-modal-error').textContent = '';
+  document.getElementById('text-modal').classList.add('open');
+}
+
+function showUploadError(msg) {
+  document.getElementById('upload-error').textContent = msg;
+}
+
+async function toggleActive(id, current) {
+  await api('PATCH', `/api/materials/${id}`, { active: !current });
+  renderMaterials();
+}
+
+async function deleteMaterial(id) {
+  if (!confirm('Ta bort materialet?')) return;
+  await api('DELETE', `/api/materials/${id}`);
+  renderMaterials();
+}
+
+// ─── Text modal ───────────────────────────────────────────────────────────────
+async function openTextModal(id, name) {
+  textModalMatId = id;
+  document.getElementById('text-modal-title').textContent = `Text — ${name}`;
+  document.getElementById('text-modal-error').textContent = '';
+  const data = await api('GET', `/api/materials/${id}/text`);
+  document.getElementById('text-modal-area').value = data.text || '';
+  document.getElementById('text-modal').classList.add('open');
+}
+
+function closeTextModal() {
+  document.getElementById('text-modal').classList.remove('open');
+  textModalMatId = null;
+  renderMaterials();
+}
+
+async function saveText() {
+  const text = document.getElementById('text-modal-area').value;
+  try {
+    await api('PATCH', `/api/materials/${textModalMatId}`, { text });
+    closeTextModal();
+  } catch (e) {
+    document.getElementById('text-modal-error').textContent = e.message;
+  }
+}
+
+// ─── Rename modal ─────────────────────────────────────────────────────────────
+function openRenameModal(type, id, currentName) {
+  renameModalType = type;
+  renameModalTarget = id;
+  document.getElementById('rename-input').value = currentName;
+  document.getElementById('rename-modal').classList.add('open');
+  setTimeout(() => document.getElementById('rename-input').focus(), 50);
+}
+
+function closeRenameModal() {
+  document.getElementById('rename-modal').classList.remove('open');
+}
+
+async function saveRename() {
+  const name = document.getElementById('rename-input').value.trim();
+  if (!name) return;
+  if (renameModalType === 'course') {
+    await api('PATCH', `/api/courses/${renameModalTarget}`, { name });
+    if (activeCourseId === renameModalTarget) {
+      activeCourseNameStr = name;
+      document.getElementById('active-course-label').textContent = name;
+    }
+    await loadCourses();
+  } else {
+    await api('PATCH', `/api/materials/${renameModalTarget}`, { name });
+    renderMaterials();
+  }
+  closeRenameModal();
+}
+
+// ─── Grading view ─────────────────────────────────────────────────────────────
+function renderGradeView() {
+  document.getElementById('grade-course-name').textContent = activeCourseNameStr || '(ingen kurs vald)';
+  document.getElementById('result-panel').classList.remove('open');
+  document.getElementById('grade-error').textContent = '';
+
+  if (!activeCourseId) {
+    ['sel-exam','sel-student'].forEach(id => {
+      document.getElementById(id).innerHTML = '<option value="">— välj kurs —</option>';
+    });
+    document.getElementById('check-primary').innerHTML = '';
+    document.getElementById('check-support').innerHTML = '';
+    return;
+  }
+
+  loadMaterials().then(() => {
+    const exams = allMaterials.filter(m => m.category === 'exam_question');
+    const students = allMaterials.filter(m => m.category === 'student_answer');
+    const primaries = allMaterials.filter(m => PRIMARY_CATS.has(m.category));
+    const supports = allMaterials.filter(m => SUPPORT_CATS.has(m.category));
+
+    fillSelect('sel-exam', exams, 'Tentafråga');
+    fillSelect('sel-student', students, 'Studentsvar');
+
+    document.getElementById('check-primary').innerHTML = primaries.length
+      ? primaries.map(m => checkboxItem(m)).join('')
+      : '<span class="empty">Inga primärmaterial i kursen</span>';
+
+    document.getElementById('check-support').innerHTML = supports.length
+      ? supports.map(m => checkboxItem(m)).join('')
+      : '<span class="empty">Inga sekundärmaterial i kursen</span>';
+  });
+}
+
+function fillSelect(id, items, placeholder) {
+  const sel = document.getElementById(id);
+  sel.innerHTML = `<option value="">— välj ${placeholder.toLowerCase()} —</option>` +
+    items.map(m => `<option value="${m.id}">${escHtml(m.name)}</option>`).join('');
+}
+
+function checkboxItem(m) {
+  return `<label>
+    <input type="checkbox" value="${m.id}" data-name="${escHtml(m.name)}">
+    ${escHtml(m.name)}
+    <span style="color:var(--muted);font-size:.75rem">(${CATEGORY_LABELS[m.category]})</span>
+  </label>`;
+}
+
+async function runGrading() {
+  const examId = document.getElementById('sel-exam').value;
+  const studentId = document.getElementById('sel-student').value;
+  document.getElementById('grade-error').textContent = '';
+
+  if (!examId) { document.getElementById('grade-error').textContent = 'Välj en tentafråga.'; return; }
+  if (!studentId) { document.getElementById('grade-error').textContent = 'Välj ett studentsvar.'; return; }
+
+  const selectedIds = [...document.querySelectorAll('#check-primary input:checked, #check-support input:checked')]
+    .map(cb => cb.value);
+
+  document.getElementById('grade-btn').disabled = true;
+  document.getElementById('grade-spinner').style.display = 'inline';
+  document.getElementById('result-panel').classList.remove('open');
+
+  try {
+    const data = await api('POST', '/api/grade', {
+      examQuestionId: examId,
+      studentAnswerId: studentId,
+      selectedMaterialIds: selectedIds,
+    });
+    renderResult(data);
+  } catch (e) {
+    document.getElementById('grade-error').textContent = e.message;
+  } finally {
+    document.getElementById('grade-btn').disabled = false;
+    document.getElementById('grade-spinner').style.display = 'none';
+  }
+}
+
+function renderResult({ result, materialsUsed }) {
+  const panel = document.getElementById('result-panel');
+
+  // Score / level
+  const scoreBox = document.getElementById('score-box');
+  if (result.score !== null && result.score !== undefined) {
+    scoreBox.innerHTML = `
+      <div class="score-num">${result.score}</div>
+      <div class="score-lbl">${escHtml(result.score_label)}</div>
+      ${result.level_assessment ? `<div class="score-lbl" style="margin-top:6px">${escHtml(result.level_assessment)}</div>` : ''}`;
+  } else {
+    scoreBox.innerHTML = `
+      <div class="level-lbl">${escHtml(result.level_assessment || 'Ingen poängmall vald')}</div>
+      ${result.score_label ? `<div class="score-lbl" style="margin-top:6px">${escHtml(result.score_label)}</div>` : ''}`;
+  }
+
+  renderAssessmentList('res-strengths', result.strengths);
+  renderAssessmentList('res-missing', result.missing_elements);
+  renderAssessmentList('res-errors', result.errors);
+
+  renderSimpleList('res-lagrum', result.missing_lagrum);
+  renderSimpleList('res-rattsfall', result.missing_rattsfall);
+
+  document.getElementById('res-disposition').textContent = result.improved_disposition || '–';
+  document.getElementById('res-model').textContent = result.model_answer || '–';
+  document.getElementById('res-next').textContent = result.next_step || '–';
+
+  // Materials used
+  const usedEl = document.getElementById('res-used');
+  usedEl.innerHTML = materialsUsed.length
+    ? materialsUsed.map(m => `
+        <div class="mat-used-chip">
+          <span class="tag ${m.role === 'PRIMARY' ? 'tag-primary' : 'tag-support'}">${m.role}</span>
+          ${escHtml(m.name)}
+          <span style="color:var(--muted)">(${CATEGORY_LABELS[m.category] || m.category})</span>
+        </div>`).join('')
+    : '<span class="empty">Inga material användes.</span>';
+
+  panel.classList.add('open');
+  panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function renderAssessmentList(elId, items) {
+  const el = document.getElementById(elId);
+  if (!items || !items.length) {
+    el.innerHTML = '<div class="empty">–</div>';
+    return;
+  }
+  el.innerHTML = items.map(item => `
+    <div class="result-item">
+      <div class="item-text">${escHtml(item.text)}</div>
+      ${item.sources && item.sources.length
+        ? `<div class="item-sources">Källa: ${item.sources.map(escHtml).join(', ')}</div>`
+        : ''}
+    </div>`).join('');
+}
+
+function renderSimpleList(elId, items) {
+  const el = document.getElementById(elId);
+  if (!items || !items.length) {
+    el.innerHTML = '<div class="empty">–</div>';
+    return;
+  }
+  el.innerHTML = items.map(s => `<div class="result-item"><div class="item-text">${escHtml(s)}</div></div>`).join('');
+}
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+async function api(method, url, body) {
+  const opts = { method, headers: { 'Content-Type': 'application/json' } };
+  if (body) opts.body = JSON.stringify(body);
+  const r = await fetch(url, opts);
+  if (!r.ok) {
+    const err = await r.json().catch(() => ({ error: r.statusText }));
+    throw new Error(err.error || r.statusText);
+  }
+  return r.json();
+}
+
+async function apiFd(method, url, fd) {
+  const r = await fetch(url, { method, body: fd });
+  if (!r.ok) {
+    const err = await r.json().catch(() => ({ error: r.statusText }));
+    throw new Error(err.error || r.statusText);
+  }
+  return r.json();
+}
+
+function escHtml(s) {
+  return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+
+function fmtDate(iso) {
+  return new Date(iso).toLocaleDateString('sv-SE');
+}
+
+// ─── Init ─────────────────────────────────────────────────────────────────────
+loadCourses();
+</script>
+</body>
+</html>
