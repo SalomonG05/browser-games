@@ -3,7 +3,7 @@
   "name": "Juridisk AI",
   "version": "1.0.0",
   "description": "Intelligent juridisk granskning och tentarättning",
-  "permissions": ["sidePanel", "storage"],
+  "permissions": ["sidePanel", "storage", "scripting", "activeTab"],
   "action": {
     "default_title": "Öppna Juridisk AI"
   },

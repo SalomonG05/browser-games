@@ -20,15 +20,20 @@
 
   <main class="main">
 
-    <!-- Markerad text -->
+    <!-- Text att rätta -->
     <div class="card" id="text-card">
       <div class="section-label">
-        Markerad text
-        <span class="text-badge empty" id="text-badge">Väntar på markering</span>
+        Text att rätta
+        <span class="text-badge empty" id="text-badge">Ingen text vald</span>
+      </div>
+      <div class="source-btns">
+        <button class="source-btn" id="btn-fetch-selection">↻ Hämta markering</button>
+        <button class="source-btn source-btn-secondary" id="btn-fetch-page">📄 Hela sidan</button>
       </div>
       <div class="selected-text-box placeholder" id="text-box">
-        Markera juridisk text på en webbsida och klicka sedan på extensionen.
+        Markera text på sidan och klicka "Hämta markering" — eller klicka "Hela sidan" för att rätta allt innehåll.
       </div>
+      <div class="source-error" id="source-error" style="display:none"></div>
       <button class="text-expand-btn" id="expand-btn">Visa mer ▾</button>
     </div>
 

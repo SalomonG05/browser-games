@@ -33,21 +33,66 @@ const SECTION_CONFIG = [
 // ── Boot ──────────────────────────────────────────────────────────────
 
 document.addEventListener('DOMContentLoaded', () => {
-  chrome.storage.session.get('selectedText', (result) => {
-    if (result.selectedText) applySelectedText(result.selectedText);
-  });
-
-  chrome.storage.onChanged.addListener((changes, area) => {
-    if (area === 'session' && changes.selectedText) {
-      applySelectedText(changes.selectedText.newValue);
-    }
-  });
-
   initAreaPills();
   initModeToggle();
   initSubmitBtn();
   initExpandBtn();
+  initSourceButtons();
 });
+
+// ── Source buttons ────────────────────────────────────────────────────
+
+function initSourceButtons() {
+  document.getElementById('btn-fetch-selection').addEventListener('click', async () => {
+    await fetchFromPage(() => window.getSelection()?.toString().trim() ?? '', 'markering');
+  });
+
+  document.getElementById('btn-fetch-page').addEventListener('click', async () => {
+    await fetchFromPage(
+      () => (document.body?.innerText ?? '').replace(/\s{3,}/g, '\n\n').trim().slice(0, 20000),
+      'sidan'
+    );
+  });
+}
+
+async function fetchFromPage(pageFn, label) {
+  const selBtn = document.getElementById('btn-fetch-selection');
+  const pageBtn = document.getElementById('btn-fetch-page');
+  selBtn.disabled = true;
+  pageBtn.disabled = true;
+  hideSourceError();
+
+  try {
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    const results = await chrome.scripting.executeScript({ target: { tabId: tab.id }, func: pageFn });
+    const text = results?.[0]?.result ?? '';
+
+    if (text.length > 10) {
+      applySelectedText(text);
+    } else {
+      showSourceError(
+        label === 'markering'
+          ? 'Ingen text är markerad på sidan. Markera text och försök igen.'
+          : 'Ingen läsbar text hittades på den här sidan.'
+      );
+    }
+  } catch {
+    showSourceError('Kunde inte läsa sidan. Chrome-sidor och PDF:er stöds ej — prova en vanlig webbsida.');
+  } finally {
+    selBtn.disabled = false;
+    pageBtn.disabled = false;
+  }
+}
+
+function showSourceError(msg) {
+  const el = document.getElementById('source-error');
+  el.textContent = msg;
+  el.style.display = 'block';
+}
+
+function hideSourceError() {
+  document.getElementById('source-error').style.display = 'none';
+}
 
 // ── Selected text ─────────────────────────────────────────────────────
 
