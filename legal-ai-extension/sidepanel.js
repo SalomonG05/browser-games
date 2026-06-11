@@ -44,18 +44,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
 function initSourceButtons() {
   document.getElementById('btn-fetch-selection').addEventListener('click', async () => {
-    await fetchFromPage(() => window.getSelection()?.toString().trim() ?? '', 'markering');
+    await fetchFromPage('GET_SELECTION', 'markering');
   });
 
   document.getElementById('btn-fetch-page').addEventListener('click', async () => {
-    await fetchFromPage(
-      () => (document.body?.innerText ?? '').replace(/\s{3,}/g, '\n\n').trim().slice(0, 20000),
-      'sidan'
-    );
+    await fetchFromPage('GET_PAGE_TEXT', 'sidan');
   });
 }
 
-async function fetchFromPage(pageFn, label) {
+async function fetchFromPage(messageType, label) {
   const selBtn = document.getElementById('btn-fetch-selection');
   const pageBtn = document.getElementById('btn-fetch-page');
   selBtn.disabled = true;
@@ -64,20 +61,22 @@ async function fetchFromPage(pageFn, label) {
 
   try {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-    const results = await chrome.scripting.executeScript({ target: { tabId: tab.id }, func: pageFn });
-    const text = results?.[0]?.result ?? '';
+    if (!tab?.id) throw new Error('no tab');
+
+    const response = await chrome.tabs.sendMessage(tab.id, { type: messageType });
+    const text = response?.text ?? '';
 
     if (text.length > 10) {
       applySelectedText(text);
     } else {
       showSourceError(
         label === 'markering'
-          ? 'Ingen text är markerad på sidan. Markera text och försök igen.'
+          ? 'Ingen text är markerad. Markera text på sidan och försök igen.'
           : 'Ingen läsbar text hittades på den här sidan.'
       );
     }
   } catch {
-    showSourceError('Kunde inte läsa sidan. Chrome-sidor och PDF:er stöds ej — prova en vanlig webbsida.');
+    showSourceError('Kunde inte nå sidan. Chrome-sidor och PDF:er stöds ej — prova en vanlig webbsida.');
   } finally {
     selBtn.disabled = false;
     pageBtn.disabled = false;
