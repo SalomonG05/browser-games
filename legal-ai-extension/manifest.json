@@ -1,0 +1,22 @@
+{
+  "manifest_version": 3,
+  "name": "Juridisk AI",
+  "version": "1.0.0",
+  "description": "Intelligent juridisk granskning och tentarättning",
+  "permissions": ["sidePanel", "storage"],
+  "action": {
+    "default_title": "Öppna Juridisk AI"
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content.js"]
+    }
+  ],
+  "side_panel": {
+    "default_path": "sidepanel.html"
+  }
+}

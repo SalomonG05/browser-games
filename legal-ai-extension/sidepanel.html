@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Juridisk AI</title>
+  <link rel="stylesheet" href="sidepanel.css">
+</head>
+<body>
+
+  <header class="header">
+    <div class="header-inner">
+      <span class="header-icon">⚖</span>
+      <div>
+        <div class="header-title">Juridisk AI</div>
+        <div class="header-sub">Intelligent juridisk granskning</div>
+      </div>
+    </div>
+  </header>
+
+  <main class="main">
+
+    <!-- Markerad text -->
+    <div class="card" id="text-card">
+      <div class="section-label">
+        Markerad text
+        <span class="text-badge empty" id="text-badge">Väntar på markering</span>
+      </div>
+      <div class="selected-text-box placeholder" id="text-box">
+        Markera juridisk text på en webbsida och klicka sedan på extensionen.
+      </div>
+      <button class="text-expand-btn" id="expand-btn">Visa mer ▾</button>
+    </div>
+
+    <!-- Formulär -->
+    <div class="card">
+      <div class="form-group">
+        <div class="section-label" style="margin-bottom:8px">Rättsområde</div>
+        <div class="pill-row" id="area-group">
+          <button class="pill" data-value="avtalsrätt">Avtalsrätt</button>
+          <button class="pill" data-value="associationsrätt">Associationsrätt</button>
+          <button class="pill" data-value="statsrätt">Statsrätt</button>
+          <button class="pill" data-value="straffrätt">Straffrätt</button>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <div class="section-label" style="margin-bottom:8px">Rättningsläge</div>
+        <div class="mode-toggle" id="mode-group">
+          <button class="mode-btn selected" data-value="tentarättning">Tentarättning</button>
+          <button class="mode-btn" data-value="vanligjuridiskgranskning">Juridisk granskning</button>
+        </div>
+      </div>
+
+      <button class="submit-btn" id="submit-btn" disabled>Rätta</button>
+    </div>
+
+    <!-- Progress -->
+    <div class="card" id="progress-card" style="display:none">
+      <div class="progress-header">
+        <span class="progress-label-text">Analyserar med AI…</span>
+        <span class="progress-pct" id="progress-pct">0%</span>
+      </div>
+      <div class="progress-track">
+        <div class="progress-fill" id="progress-fill"></div>
+      </div>
+      <div class="progress-step-text" id="progress-step">Läser juridisk text…</div>
+    </div>
+
+    <!-- Resultat -->
+    <div id="results-section" style="display:none">
+
+      <!-- Betyg -->
+      <div class="card grade-card" id="grade-card">
+        <div class="grade-ring" id="grade-ring">
+          <span class="grade-text" id="grade-text">—</span>
+        </div>
+        <div class="grade-info">
+          <div class="grade-name" id="grade-name"></div>
+          <div class="grade-score-line" id="grade-score-line"></div>
+          <div class="grade-summary" id="grade-summary"></div>
+        </div>
+      </div>
+
+      <!-- Feedbacksektioner -->
+      <div id="feedback-sections"></div>
+    </div>
+
+  </main>
+
+  <script src="demo-data.js"></script>
+  <script src="sidepanel.js"></script>
+</body>
+</html>
