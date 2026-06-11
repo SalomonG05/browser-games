@@ -1,15 +1,16 @@
 let selectedText = '';
-let selectedArea = null;
+let selectedArea = 'associationsrätt';
 let selectedMode = 'tentarättning';
+let activeSourceData = null;
 
 const PROGRESS_STEPS = [
   'Läser juridisk text…',
   'Identifierar rättsliga frågeställningar…',
   'Söker relevanta lagrum…',
-  'Analyserar rättsfall…',
+  'Analyserar rättsfall och praxis…',
   'Bedömer argumentation och struktur…',
   'Identifierar saknade moment…',
-  'Genererar feedbacksektioner…',
+  'Genererar bedömningsmatris…',
   'Sammanställer juridisk rapport…',
 ];
 
@@ -19,37 +20,89 @@ const GRADE_MAP = {
   U:  { name: 'Underkänd',   ringClass: 'grade-u' },
 };
 
-const SECTION_CONFIG = [
-  { key: 'styrkor',                title: 'Styrkor',                    icon: '✓', type: 'list',   bulletClass: '' },
-  { key: 'saknadeMoment',          title: 'Saknade moment',             icon: '○', type: 'list',   bulletClass: '' },
-  { key: 'saknadeLagrum',          title: 'Saknade lagrum',             icon: '§', type: 'list',   bulletClass: 'ref' },
-  { key: 'saknadeRattsfall',       title: 'Saknade rättsfall',          icon: '⚖', type: 'list',   bulletClass: 'case' },
-  { key: 'bristerITillämpning',    title: 'Brister i tillämpning',      icon: '△', type: 'text' },
-  { key: 'forbattradDisposition',  title: 'Förbättrad disposition',     icon: '≡', type: 'text' },
-  { key: 'förslagBattreTentasvar', title: 'Förslag på bättre tentasvar',icon: '→', type: 'text' },
-  { key: 'kallgrund',              title: 'Källgrund / underlag',       icon: '📚', type: 'list',  bulletClass: 'ref' },
-];
+const TYPE_META = {
+  statute:   { label: 'Lagrum',    cls: 'badge-statute' },
+  case:      { label: 'Rättsfall', cls: 'badge-case' },
+  forarbete: { label: 'Förarbete', cls: 'badge-forarbete' },
+  doktrin:   { label: 'Doktrin',   cls: 'badge-doktrin' },
+  svarsmall: { label: 'Svarsmall', cls: 'badge-svarsmall' },
+  qura:      { label: 'Qura',      cls: 'badge-qura' },
+};
+
+const STATUS_META = {
+  uppfyllt:     { label: 'Uppfyllt',        cls: 'status-uppfyllt' },
+  delvis:       { label: 'Delvis uppfyllt', cls: 'status-delvis' },
+  bristfälligt: { label: 'Bristfälligt',    cls: 'status-bristfälligt' },
+  saknas:       { label: 'Saknas',          cls: 'status-saknas' },
+};
 
 // ── Boot ──────────────────────────────────────────────────────────────
 
 document.addEventListener('DOMContentLoaded', () => {
+  initTextArea();
+  initClearBtn();
+  initSourceButtons();
   initAreaPills();
   initModeToggle();
   initSubmitBtn();
-  initExpandBtn();
-  initSourceButtons();
+  initModal();
 });
 
-// ── Source buttons ────────────────────────────────────────────────────
+// ── Text area ─────────────────────────────────────────────────────────
+
+function initTextArea() {
+  document.getElementById('text-area').addEventListener('input', () => {
+    selectedText = document.getElementById('text-area').value.trim();
+    updateTextBadge();
+    updateSubmitState();
+  });
+}
+
+function applySelectedText(text) {
+  selectedText = text;
+  document.getElementById('text-area').value = text;
+  updateTextBadge();
+  updateSubmitState();
+  hideSourceError();
+}
+
+function updateTextBadge() {
+  const badge = document.getElementById('text-badge');
+  if (selectedText.length > 10) {
+    badge.textContent = `${selectedText.length} tecken`;
+    badge.classList.remove('empty');
+  } else {
+    badge.textContent = 'Ingen text vald';
+    badge.classList.add('empty');
+  }
+}
+
+function initClearBtn() {
+  document.getElementById('btn-clear').addEventListener('click', clearText);
+}
+
+function clearText() {
+  document.getElementById('text-area').value = '';
+  selectedText = '';
+  updateTextBadge();
+  updateSubmitState();
+  document.getElementById('results-section').style.display = 'none';
+  hideSourceError();
+
+  const confirm = document.getElementById('clear-confirm');
+  confirm.classList.add('visible');
+  setTimeout(() => confirm.classList.remove('visible'), 2200);
+}
+
+// ── Source buttons (fetch from page) ─────────────────────────────────
 
 function initSourceButtons() {
-  document.getElementById('btn-fetch-selection').addEventListener('click', async () => {
-    await fetchFromPage('GET_SELECTION', 'markering');
-  });
-
-  document.getElementById('btn-fetch-page').addEventListener('click', async () => {
-    await fetchFromPage('GET_PAGE_TEXT', 'sidan');
-  });
+  document.getElementById('btn-fetch-selection').addEventListener('click', () =>
+    fetchFromPage('GET_SELECTION', 'markering')
+  );
+  document.getElementById('btn-fetch-page').addEventListener('click', () =>
+    fetchFromPage('GET_PAGE_TEXT', 'sidan')
+  );
 }
 
 async function fetchFromPage(messageType, label) {
@@ -62,17 +115,15 @@ async function fetchFromPage(messageType, label) {
   try {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
     if (!tab?.id) throw new Error('no tab');
-
     const response = await chrome.tabs.sendMessage(tab.id, { type: messageType });
     const text = response?.text ?? '';
-
     if (text.length > 10) {
       applySelectedText(text);
     } else {
       showSourceError(
         label === 'markering'
           ? 'Ingen text är markerad. Markera text på sidan och försök igen.'
-          : 'Ingen läsbar text hittades på den här sidan.'
+          : 'Ingen läsbar text hittades på sidan.'
       );
     }
   } catch {
@@ -91,36 +142,6 @@ function showSourceError(msg) {
 
 function hideSourceError() {
   document.getElementById('source-error').style.display = 'none';
-}
-
-// ── Selected text ─────────────────────────────────────────────────────
-
-function applySelectedText(text) {
-  selectedText = text;
-
-  const box = document.getElementById('text-box');
-  const badge = document.getElementById('text-badge');
-  const expandBtn = document.getElementById('expand-btn');
-
-  box.textContent = text;
-  box.classList.remove('placeholder');
-
-  badge.textContent = `${text.length} tecken`;
-  badge.classList.remove('empty');
-
-  expandBtn.style.display = text.length > 200 ? 'block' : 'none';
-
-  updateSubmitState();
-}
-
-function initExpandBtn() {
-  const btn = document.getElementById('expand-btn');
-  const box = document.getElementById('text-box');
-
-  btn.addEventListener('click', () => {
-    const expanded = box.classList.toggle('expanded');
-    btn.textContent = expanded ? 'Visa mindre ▴' : 'Visa mer ▾';
-  });
 }
 
 // ── Form controls ─────────────────────────────────────────────────────
@@ -150,7 +171,7 @@ function updateSubmitState() {
   document.getElementById('submit-btn').disabled = !(selectedText.length > 10 && selectedArea);
 }
 
-// ── Submit & analysis ─────────────────────────────────────────────────
+// ── Submit ────────────────────────────────────────────────────────────
 
 function initSubmitBtn() {
   document.getElementById('submit-btn').addEventListener('click', handleSubmit);
@@ -168,13 +189,12 @@ async function handleSubmit() {
 
   await simulateProgress();
 
-  // ── Swap this call with a real API request in production ──
-  const response = getDemoResponse(selectedArea, selectedMode);
-  // ─────────────────────────────────────────────────────────
+  // ── Replace getDemoResponse() with a real API call in production ──
+  const result = getDemoResponse(selectedArea, selectedMode);
+  // ─────────────────────────────────────────────────────────────────
 
   document.getElementById('progress-card').style.display = 'none';
-  renderResults(response);
-
+  renderResult(result);
   document.getElementById('results-section').style.display = 'block';
   document.getElementById('results-section').scrollIntoView({ behavior: 'smooth' });
 
@@ -187,7 +207,7 @@ function simulateProgress() {
     let pct = 0;
     let stepIdx = 0;
     const fill = document.getElementById('progress-fill');
-    const pctEl = document.getElementById('progress-pct');
+    const pctEl  = document.getElementById('progress-pct');
     const stepEl = document.getElementById('progress-step');
 
     const tick = setInterval(() => {
@@ -195,14 +215,8 @@ function simulateProgress() {
       fill.style.width = pct + '%';
       pctEl.textContent = Math.floor(pct) + '%';
 
-      const newIdx = Math.min(
-        Math.floor((pct / 100) * PROGRESS_STEPS.length),
-        PROGRESS_STEPS.length - 1
-      );
-      if (newIdx !== stepIdx) {
-        stepIdx = newIdx;
-        stepEl.textContent = PROGRESS_STEPS[stepIdx];
-      }
+      const idx = Math.min(Math.floor((pct / 100) * PROGRESS_STEPS.length), PROGRESS_STEPS.length - 1);
+      if (idx !== stepIdx) { stepIdx = idx; stepEl.textContent = PROGRESS_STEPS[idx]; }
 
       if (pct >= 99) {
         clearInterval(tick);
@@ -215,18 +229,30 @@ function simulateProgress() {
   });
 }
 
-// ── Render results ────────────────────────────────────────────────────
+// ── Render result ─────────────────────────────────────────────────────
 
-function renderResults(data) {
+function renderResult(data) {
   renderGradeCard(data);
-  renderFeedbackSections(data);
+
+  const container = document.getElementById('feedback-sections');
+  container.innerHTML = '';
+
+  appendSourceListSection(container, 'Styrkor',                    '✓',  data.strengths,       true);
+  appendSourceListSection(container, 'Brister',                    '△',  data.weaknesses,      true);
+  appendSourceListSection(container, 'Saknade lagrum',             '§',  data.missingStatutes, false);
+  appendSourceListSection(container, 'Saknade rättsfall',          '⚖', data.missingCases,    false);
+  appendSourceListSection(container, 'Saknad doktrin / förarbete', '📖', data.missingDoctrine, false);
+  appendMatrixSection(container, data.assessmentMatrix);
+  appendTextSection(container,      'Förbättrad disposition',      '≡',  data.improvedDisposition, false);
+  appendTextSection(container,      'Förslag på bättre tentasvar', '→',  data.modelAnswer,         false);
+  appendSourcesUsedSection(container, data.sourcesUsed);
 }
 
 function renderGradeCard(data) {
-  const ring = document.getElementById('grade-ring');
-  const gradeText = document.getElementById('grade-text');
-  const gradeName = document.getElementById('grade-name');
-  const gradeScore = document.getElementById('grade-score-line');
+  const ring        = document.getElementById('grade-ring');
+  const gradeText   = document.getElementById('grade-text');
+  const gradeName   = document.getElementById('grade-name');
+  const gradeScore  = document.getElementById('grade-score-line');
   const gradeSummary = document.getElementById('grade-summary');
 
   ring.className = 'grade-ring';
@@ -244,69 +270,212 @@ function renderGradeCard(data) {
     gradeScore.textContent = '';
   }
 
-  gradeSummary.textContent = data.samladBedömning;
+  gradeSummary.textContent = data.overallAssessment;
 }
 
-function renderFeedbackSections(data) {
-  const container = document.getElementById('feedback-sections');
-  container.innerHTML = '';
+// ── Section builders ──────────────────────────────────────────────────
 
-  SECTION_CONFIG.forEach((cfg, i) => {
-    const value = data[cfg.key];
-    if (!value || (Array.isArray(value) && value.length === 0)) return;
+function makeFbCard(title, icon, startOpen) {
+  const card   = document.createElement('div');
+  card.className = 'fb-card';
 
-    const startOpen = i < 3;
-    const card = document.createElement('div');
-    card.className = 'fb-card';
+  const header = document.createElement('div');
+  header.className = 'fb-header';
+  header.innerHTML = `
+    <div class="fb-title-row">
+      <span class="fb-icon">${icon}</span>
+      <span>${title}</span>
+    </div>
+    <span class="fb-chevron ${startOpen ? 'open' : ''}">▾</span>
+  `;
 
-    const header = document.createElement('div');
-    header.className = 'fb-header';
-    header.innerHTML = `
-      <div class="fb-title-row">
-        <span class="fb-icon">${cfg.icon}</span>
-        <span>${cfg.title}</span>
-      </div>
-      <span class="fb-chevron ${startOpen ? 'open' : ''}">▾</span>
-    `;
+  const body  = document.createElement('div');
+  body.className = `fb-body ${startOpen ? 'open' : ''}`;
 
-    const body = document.createElement('div');
-    body.className = `fb-body ${startOpen ? 'open' : ''}`;
+  const inner = document.createElement('div');
+  inner.className = 'fb-inner';
 
-    const inner = document.createElement('div');
-    inner.className = 'fb-inner';
+  header.addEventListener('click', () => {
+    body.classList.toggle('open');
+    header.querySelector('.fb-chevron').classList.toggle('open');
+  });
 
-    if (cfg.type === 'list' && Array.isArray(value)) {
-      const ul = document.createElement('ul');
-      ul.className = 'fb-list';
-      value.forEach((item) => {
-        const li = document.createElement('li');
-        const bullet = document.createElement('span');
-        bullet.className = `fb-bullet${cfg.bulletClass ? ' ' + cfg.bulletClass : ''}`;
-        bullet.textContent = cfg.bulletClass === 'ref' ? '§' : cfg.bulletClass === 'case' ? '⚖' : '▸';
-        const span = document.createElement('span');
-        span.textContent = item;
-        li.appendChild(bullet);
-        li.appendChild(span);
-        ul.appendChild(li);
+  body.appendChild(inner);
+  card.appendChild(header);
+  card.appendChild(body);
+  return { card, inner };
+}
+
+function appendSourceListSection(container, title, icon, items, startOpen) {
+  if (!items?.length) return;
+  const { card, inner } = makeFbCard(title, icon, startOpen);
+
+  const ul = document.createElement('ul');
+  ul.className = 'fb-list';
+
+  items.forEach((item) => {
+    const li     = document.createElement('li');
+    const bullet = document.createElement('span');
+    bullet.className = 'fb-bullet';
+    bullet.textContent = '▸';
+
+    const content = document.createElement('div');
+    content.className = 'fb-item-content';
+
+    const text = document.createElement('span');
+    text.textContent = item.text;
+    content.appendChild(text);
+
+    if (item.sourceIds?.length) {
+      const chips = document.createElement('div');
+      chips.className = 'source-chips';
+      item.sourceIds.forEach((id) => {
+        const src = SOURCES[id];
+        if (src) chips.appendChild(makeSourceChip(src));
       });
-      inner.appendChild(ul);
-    } else {
-      const p = document.createElement('p');
-      p.className = 'fb-text';
-      p.textContent = value;
-      inner.appendChild(p);
+      content.appendChild(chips);
     }
 
-    body.appendChild(inner);
-
-    header.addEventListener('click', () => {
-      const chevron = header.querySelector('.fb-chevron');
-      body.classList.toggle('open');
-      chevron.classList.toggle('open');
-    });
-
-    card.appendChild(header);
-    card.appendChild(body);
-    container.appendChild(card);
+    li.appendChild(bullet);
+    li.appendChild(content);
+    ul.appendChild(li);
   });
+
+  inner.appendChild(ul);
+  container.appendChild(card);
+}
+
+function appendTextSection(container, title, icon, text, startOpen) {
+  if (!text) return;
+  const { card, inner } = makeFbCard(title, icon, startOpen);
+  const p = document.createElement('p');
+  p.className = 'fb-text';
+  p.textContent = text;
+  inner.appendChild(p);
+  container.appendChild(card);
+}
+
+function appendMatrixSection(container, matrix) {
+  if (!matrix?.length) return;
+  const { card, inner } = makeFbCard('Aktualiserad bedömningsmatris', '◈', false);
+
+  const list = document.createElement('div');
+  list.className = 'matrix-list';
+
+  matrix.forEach((item) => {
+    const st = STATUS_META[item.status] || STATUS_META.delvis;
+
+    const row = document.createElement('div');
+    row.className = 'matrix-item';
+
+    const head = document.createElement('div');
+    head.className = 'matrix-item-head';
+
+    const crit = document.createElement('div');
+    crit.className = 'matrix-criterion';
+    crit.textContent = item.criterion;
+
+    const badge = document.createElement('span');
+    badge.className = `matrix-status ${st.cls}`;
+    badge.textContent = st.label;
+
+    head.appendChild(crit);
+    head.appendChild(badge);
+
+    const issue = document.createElement('div');
+    issue.className = 'matrix-issue';
+    issue.textContent = item.linkedIssue;
+
+    row.appendChild(head);
+    row.appendChild(issue);
+
+    if (item.sourceIds?.length) {
+      const chips = document.createElement('div');
+      chips.className = 'matrix-sources';
+      item.sourceIds.forEach((id) => {
+        const src = SOURCES[id];
+        if (src) chips.appendChild(makeSourceChip(src));
+      });
+      row.appendChild(chips);
+    }
+
+    list.appendChild(row);
+  });
+
+  inner.appendChild(list);
+  container.appendChild(card);
+}
+
+function appendSourcesUsedSection(container, sourceIds) {
+  if (!sourceIds?.length) return;
+  const { card, inner } = makeFbCard('Källor som användes', '📚', false);
+
+  const grid = document.createElement('div');
+  grid.className = 'sources-grid';
+
+  sourceIds.forEach((id) => {
+    const src = SOURCES[id];
+    if (!src) return;
+    const tm = TYPE_META[src.type] || TYPE_META.statute;
+
+    const btn = document.createElement('button');
+    btn.className = 'source-card';
+    btn.innerHTML = `
+      <span class="source-type-badge ${tm.cls}">${tm.label}</span>
+      <span class="source-card-label">${src.label}</span>
+      <span class="source-card-arrow">↗</span>
+    `;
+    btn.addEventListener('click', () => showSourceModal(src));
+    grid.appendChild(btn);
+  });
+
+  inner.appendChild(grid);
+  container.appendChild(card);
+}
+
+// ── Source chips ──────────────────────────────────────────────────────
+
+function makeSourceChip(src) {
+  const btn = document.createElement('button');
+  btn.className = 'source-chip';
+  btn.textContent = src.label;
+  btn.addEventListener('click', (e) => { e.stopPropagation(); showSourceModal(src); });
+  return btn;
+}
+
+// ── Source modal ──────────────────────────────────────────────────────
+
+function initModal() {
+  document.getElementById('modal-close').addEventListener('click', closeSourceModal);
+  document.getElementById('modal-overlay').addEventListener('click', (e) => {
+    if (e.target === document.getElementById('modal-overlay')) closeSourceModal();
+  });
+  document.getElementById('modal-open-btn').addEventListener('click', () => {
+    if (activeSourceData?.demoUrl && activeSourceData.demoUrl !== '#demo') {
+      chrome.tabs.create({ url: activeSourceData.demoUrl });
+    }
+    closeSourceModal();
+  });
+}
+
+function showSourceModal(src) {
+  activeSourceData = src;
+  const tm = TYPE_META[src.type] || TYPE_META.statute;
+
+  const typeBadge = document.getElementById('modal-type-badge');
+  typeBadge.textContent = tm.label;
+  typeBadge.className = `modal-type-badge ${tm.cls}`;
+
+  document.getElementById('modal-title').textContent = src.label;
+  document.getElementById('modal-excerpt').textContent = src.excerpt;
+
+  const openBtn = document.getElementById('modal-open-btn');
+  openBtn.textContent = src.demoUrl !== '#demo' ? 'Öppna källa ↗' : 'Stäng (demolänk)';
+
+  document.getElementById('modal-overlay').classList.add('open');
+}
+
+function closeSourceModal() {
+  document.getElementById('modal-overlay').classList.remove('open');
+  activeSourceData = null;
 }
