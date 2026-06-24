@@ -1,88 +1,38 @@
-export type PartySource = {
-  partyId: string;
-  url: string;
-  sourceType: string;
-  isPrimary: boolean;
-  description: string;
+/**
+ * Hjälpfunktioner för källhantering.
+ *
+ * Crawl-URL:er finns i data/seed-urls.ts.
+ * Partiernas officiella hemsidor finns i data/parties.ts.
+ */
+
+/** Prioritetsordning för källtyper — lägre tal = högre trovärdighet */
+const SOURCE_TYPE_PRIORITY: Record<string, number> = {
+  MANIFESTO: 1,
+  PARTY_PROGRAM: 2,
+  PARTY_WEBSITE: 3,
+  RIKSDAG: 4,
+  AUTHORITY: 5,
+  NEWS: 6,
 };
 
-export const PARTY_SOURCES: PartySource[] = [
-  // Socialdemokraterna
-  {
-    partyId: "socialdemokraterna",
-    url: "https://www.socialdemokraterna.se/var-politik/a-till-o",
-    sourceType: "PARTY_WEBSITE",
-    isPrimary: true,
-    description: "Politisk A-Ö",
-  },
-  {
-    partyId: "socialdemokraterna",
-    url: "https://www.socialdemokraterna.se/var-politik",
-    sourceType: "PARTY_WEBSITE",
-    isPrimary: true,
-    description: "Partiets politik",
-  },
-  // Moderaterna
-  {
-    partyId: "moderaterna",
-    url: "https://moderaterna.se/politik",
-    sourceType: "PARTY_WEBSITE",
-    isPrimary: true,
-    description: "Moderaternas politik",
-  },
-  {
-    partyId: "moderaterna",
-    url: "https://moderaterna.se/politik/a-o",
-    sourceType: "PARTY_WEBSITE",
-    isPrimary: true,
-    description: "Politik A-Ö",
-  },
-  // Sverigedemokraterna
-  {
-    partyId: "sverigedemokraterna",
-    url: "https://sd.se/var-politik",
-    sourceType: "PARTY_WEBSITE",
-    isPrimary: true,
-    description: "SD:s politik",
-  },
-  // Vänsterpartiet
-  {
-    partyId: "vansterpartiet",
-    url: "https://www.vansterpartiet.se/politik",
-    sourceType: "PARTY_WEBSITE",
-    isPrimary: true,
-    description: "Vänsterpartiets politik",
-  },
-  // Centerpartiet
-  {
-    partyId: "centerpartiet",
-    url: "https://www.centerpartiet.se/var-politik",
-    sourceType: "PARTY_WEBSITE",
-    isPrimary: true,
-    description: "Centerpartiets politik",
-  },
-  // Kristdemokraterna
-  {
-    partyId: "kristdemokraterna",
-    url: "https://www.kristdemokraterna.se/var-politik",
-    sourceType: "PARTY_WEBSITE",
-    isPrimary: true,
-    description: "KD:s politik",
-  },
-  // Liberalerna
-  {
-    partyId: "liberalerna",
-    url: "https://www.liberalerna.se/politik",
-    sourceType: "PARTY_WEBSITE",
-    isPrimary: true,
-    description: "Liberalernas politik",
-  },
-  // Miljöpartiet
-  {
-    partyId: "miljopartiet",
-    url: "https://www.mp.se/politik",
-    sourceType: "PARTY_WEBSITE",
-    isPrimary: true,
-    description: "Miljöpartiets politik",
-  },
-];
+export function getSourceTypePriority(sourceType: string): number {
+  return SOURCE_TYPE_PRIORITY[sourceType] ?? 99;
+}
+
+/** Returnerar true om källtypen är en accepterad primärkälla för partipositioner */
+export function isAcceptedPrimarySource(sourceType: string): boolean {
+  return getSourceTypePriority(sourceType) <= 4;
+}
+
+/** Läsbar etikett för en källtyp */
+export function sourceTypeLabel(sourceType: string): string {
+  const labels: Record<string, string> = {
+    MANIFESTO: "Valmanifest",
+    PARTY_PROGRAM: "Partiprogram",
+    PARTY_WEBSITE: "Partiets webbplats",
+    RIKSDAG: "Riksdagsdokument",
+    AUTHORITY: "Myndighet",
+    NEWS: "Nyhetskälla",
+  };
+  return labels[sourceType] ?? sourceType;
+}

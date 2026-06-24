@@ -28,8 +28,8 @@ async function checkRobotsTxt(baseUrl: string): Promise<boolean> {
       }
       if (inOurBlock && trimmed.toLowerCase().startsWith("disallow:")) {
         const path = trimmed.slice("disallow:".length).trim();
-        if (path === "") continue;  // Empty = allow all
-        if (path === "/") return false;  // Block everything
+        if (path === "") continue;         // Tom Disallow = tillåt allt
+        if (path === "/") return false;    // Disallow: / = blockera allt
         if (url.pathname.startsWith(path)) return false;
       }
     }
@@ -53,7 +53,56 @@ function hashContent(text: string): string {
   return crypto.createHash("sha256").update(text).digest("hex").slice(0, 32);
 }
 
-export async function crawlPage(url: string, partyId: string, sourceType = "PARTY_WEBSITE", isPrimary = true): Promise<CrawlResult> {
+/**
+ * Hittar interna länkar på en sida vars sökväg börjar med basePath.
+ * Används när en sida är för kort (t.ex. en indexsida) — vi följer då
+ * länkarna vidare i stället för att ge upp direkt.
+ */
+export async function discoverLinks(pageUrl: string, basePath: string): Promise<string[]> {
+  try {
+    const res = await fetch(pageUrl, {
+      headers: { "User-Agent": USER_AGENT, Accept: "text/html" },
+      signal: AbortSignal.timeout(10000),
+    });
+    if (!res.ok) return [];
+    const html = await res.text();
+    const $ = cheerio.load(html);
+    const origin = new URL(pageUrl).origin;
+    const seen = new Set<string>();
+    const links: string[] = [];
+
+    $("a[href]").each((_, el) => {
+      const href = $(el).attr("href") ?? "";
+      let absolute: string;
+      try {
+        absolute = new URL(href, pageUrl).href;
+      } catch {
+        return;
+      }
+      const parsed = new URL(absolute);
+      if (parsed.origin !== origin) return;
+      if (!parsed.pathname.startsWith(basePath)) return;
+      if (parsed.pathname === new URL(pageUrl).pathname) return;
+      // Strip hash and query for deduplication
+      const clean = `${parsed.origin}${parsed.pathname}`;
+      if (!seen.has(clean)) {
+        seen.add(clean);
+        links.push(clean);
+      }
+    });
+
+    return links;
+  } catch {
+    return [];
+  }
+}
+
+export async function crawlPage(
+  url: string,
+  partyId: string,
+  sourceType = "PARTY_WEBSITE",
+  isPrimary = true,
+): Promise<CrawlResult> {
   if (url.toLowerCase().endsWith(".pdf")) {
     return { ok: false, error: "pdf_not_supported_yet", url };
   }
@@ -92,9 +141,7 @@ export async function crawlPage(url: string, partyId: string, sourceType = "PART
   const contentHash = hashContent(rawText);
   const wordCount = rawText.split(/\s+/).length;
 
-  const existingByHash = await prisma.source.findFirst({
-    where: { url, contentHash },
-  });
+  const existingByHash = await prisma.source.findFirst({ where: { url, contentHash } });
   if (existingByHash) {
     return { ok: true, sourceId: existingByHash.id, title, wordCount, isNew: false, changed: false };
   }
