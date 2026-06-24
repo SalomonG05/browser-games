@@ -1,0 +1,58 @@
+export const PARTIES = [
+  {
+    id: "socialdemokraterna",
+    name: "Socialdemokraterna",
+    shortName: "S",
+    website: "https://www.socialdemokraterna.se",
+    description: "Sveriges äldsta och historiskt största parti, grundat 1889.",
+  },
+  {
+    id: "moderaterna",
+    name: "Moderaterna",
+    shortName: "M",
+    website: "https://moderaterna.se",
+    description: "Konservativt och liberalkonservativt parti.",
+  },
+  {
+    id: "sverigedemokraterna",
+    name: "Sverigedemokraterna",
+    shortName: "SD",
+    website: "https://sd.se",
+    description: "Socialkonservativt parti med fokus på invandringsbegränsning.",
+  },
+  {
+    id: "vansterpartiet",
+    name: "Vänsterpartiet",
+    shortName: "V",
+    website: "https://www.vansterpartiet.se",
+    description: "Socialistiskt parti till vänster om Socialdemokraterna.",
+  },
+  {
+    id: "centerpartiet",
+    name: "Centerpartiet",
+    shortName: "C",
+    website: "https://www.centerpartiet.se",
+    description: "Liberalt och grönt parti med rötter i landsbygdsrörelsen.",
+  },
+  {
+    id: "kristdemokraterna",
+    name: "Kristdemokraterna",
+    shortName: "KD",
+    website: "https://www.kristdemokraterna.se",
+    description: "Kristdemokratiskt och konservativt parti.",
+  },
+  {
+    id: "liberalerna",
+    name: "Liberalerna",
+    shortName: "L",
+    website: "https://www.liberalerna.se",
+    description: "Liberalt parti med fokus på utbildning och frihet.",
+  },
+  {
+    id: "miljopartiet",
+    name: "Miljöpartiet",
+    shortName: "MP",
+    website: "https://www.mp.se",
+    description: "Grönt parti med fokus på klimat och miljö.",
+  },
+];

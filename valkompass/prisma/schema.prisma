@@ -1,0 +1,101 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client"
+  output   = "../app/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+model Party {
+  id          String     @id
+  name        String
+  shortName   String
+  website     String
+  description String?
+  sources     Source[]
+  positions   Position[]
+  createdAt   DateTime   @default(now())
+}
+
+model Source {
+  id          String     @id @default(cuid())
+  partyId     String
+  party       Party      @relation(fields: [partyId], references: [id])
+  url         String
+  title       String?
+  rawText     String
+  fetchedAt   DateTime   @default(now())
+  contentHash String
+  sourceType  String     @default("PARTY_WEBSITE")
+  isPrimary   Boolean    @default(true)
+  changed     Boolean    @default(false)
+  positions   Position[]
+
+  @@unique([url, contentHash])
+}
+
+model Position {
+  id                 String             @id @default(cuid())
+  partyId            String
+  party              Party              @relation(fields: [partyId], references: [id])
+  sourceId           String
+  source             Source             @relation(fields: [sourceId], references: [id])
+  topic              String
+  specificQuestion   String
+  summary            String
+  positionValue      Float?
+  confidence         String             @default("MEDIUM")
+  sourceQuote        String
+  sourceUrl          String
+  aiInterpretation   String
+  reviewStatus       String             @default("PENDING")
+  reviewNote         String?
+  conflictingSources Boolean            @default(false)
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+  questionPositions  QuestionPosition[]
+}
+
+model Question {
+  id               String             @id @default(cuid())
+  topic            String
+  questionText     String
+  description      String?
+  weightingEnabled Boolean            @default(true)
+  reviewStatus     String             @default("PENDING")
+  createdAt        DateTime           @default(now())
+  positions        QuestionPosition[]
+  answers          UserAnswer[]
+}
+
+model QuestionPosition {
+  questionId String
+  positionId String
+  question   Question @relation(fields: [questionId], references: [id])
+  position   Position @relation(fields: [positionId], references: [id])
+
+  @@id([questionId, positionId])
+}
+
+model UserSession {
+  id        String       @id @default(cuid())
+  createdAt DateTime     @default(now())
+  answers   UserAnswer[]
+}
+
+model UserAnswer {
+  id         String      @id @default(cuid())
+  sessionId  String
+  session    UserSession @relation(fields: [sessionId], references: [id])
+  questionId String
+  question   Question    @relation(fields: [questionId], references: [id])
+  answer     Int?
+  importance Int         @default(1)
+  skipped    Boolean     @default(false)
+
+  @@unique([sessionId, questionId])
+}
