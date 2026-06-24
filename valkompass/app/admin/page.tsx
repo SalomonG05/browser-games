@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import ExportTab from "./ExportTab";
 
 type Position = {
   id: string;
@@ -55,7 +56,7 @@ const SCALE_LABELS: Record<string, string> = {
 };
 
 export default function AdminPage() {
-  const [tab, setTab] = useState<"positions" | "questions">("positions");
+  const [tab, setTab] = useState<"positions" | "questions" | "export">("positions");
   const [positions, setPositions] = useState<Position[]>([]);
   const [questions, setQuestions] = useState<Question[]>([]);
   const [loading, setLoading] = useState(true);
@@ -148,6 +149,12 @@ export default function AdminPage() {
           className={`px-4 py-2 rounded text-sm font-medium ${tab === "questions" ? "bg-white shadow text-gray-900" : "text-gray-500 hover:text-gray-700"}`}
         >
           Valkompassfrågor
+        </button>
+        <button
+          onClick={() => setTab("export")}
+          className={`px-4 py-2 rounded text-sm font-medium ${tab === "export" ? "bg-white shadow text-gray-900" : "text-gray-500 hover:text-gray-700"}`}
+        >
+          Export för granskning
         </button>
       </div>
 
@@ -248,6 +255,9 @@ export default function AdminPage() {
           )}
         </>
       )}
+
+      {/* EXPORT TAB */}
+      {tab === "export" && <ExportTab />}
 
       {/* QUESTIONS TAB */}
       {tab === "questions" && (
