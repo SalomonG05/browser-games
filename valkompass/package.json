@@ -9,6 +9,7 @@
     "lint": "eslint",
     "seed": "tsx prisma/seed.ts",
     "crawl": "tsx scripts/crawl.ts",
+    "crawl:test": "tsx scripts/crawl.ts --test",
     "extract": "tsx scripts/extract.ts",
     "generate-questions": "tsx scripts/generate-questions.ts"
   },

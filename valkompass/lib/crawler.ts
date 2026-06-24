@@ -8,6 +8,67 @@ export type CrawlResult =
 
 const USER_AGENT = "Valkompass-Bot/1.0 (educational research, non-commercial)";
 
+// Sökvägar som indikerar politiskt innehåll — andra sidor ignoreras
+const POLITICAL_PATTERNS = [
+  "/var-politik",
+  "/politik",
+  "/politik-a-o",
+  "/a-till-o",
+  "/sakpolitik",
+  "/fragor",
+];
+
+// Sökvägar och ändelser att alltid ignorera
+const IGNORE_PATH_FRAGMENTS = [
+  "press", "nyheter", "kalender", "kontakt",
+  "donation", "medlem", "event", "media",
+  "bilder", "filer", "sociala-medier",
+];
+const IGNORE_EXTENSIONS = [
+  ".pdf", ".jpg", ".jpeg", ".png", ".gif",
+  ".svg", ".zip", ".doc", ".docx", ".xlsx",
+  ".mp3", ".mp4", ".webp",
+];
+
+/** Normaliserar en URL för jämförelse: lowercase domain, strip trailing slash, strip hash+query. */
+export function normalizeUrl(url: string): string {
+  try {
+    const u = new URL(url);
+    const path = u.pathname.replace(/\/+$/, "") || "/";
+    return `${u.protocol}//${u.hostname.toLowerCase()}${path}`;
+  } catch {
+    return url.toLowerCase();
+  }
+}
+
+/** Returnerar true om URL:ens sökväg matchar ett känt politiskt mönster. */
+export function isPoliticallyRelevant(url: string): boolean {
+  try {
+    const { pathname } = new URL(url);
+    return POLITICAL_PATTERNS.some((p) => pathname.toLowerCase().includes(p));
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Returnerar skäl att hoppa över URL:en, eller null om den är ok.
+ * Kontrollerar filändelser och icke-politiska sökvägar.
+ */
+export function shouldIgnoreUrl(url: string): string | null {
+  try {
+    const { pathname } = new URL(url);
+    const lower = pathname.toLowerCase();
+    const ext = IGNORE_EXTENSIONS.find((e) => lower.endsWith(e));
+    if (ext) return `filtyp ${ext}`;
+    const blocked = IGNORE_PATH_FRAGMENTS.find((p) => lower.split("/").some((seg) => seg === p || seg.startsWith(p + "-")));
+    if (blocked) return blocked;
+    return null;
+  } catch {
+    return "ogiltig URL";
+  }
+}
+
 async function checkRobotsTxt(baseUrl: string): Promise<boolean> {
   try {
     const url = new URL(baseUrl);
@@ -54,9 +115,8 @@ function hashContent(text: string): string {
 }
 
 /**
- * Hittar interna länkar på en sida vars sökväg börjar med basePath.
- * Används när en sida är för kort (t.ex. en indexsida) — vi följer då
- * länkarna vidare i stället för att ge upp direkt.
+ * Hittar interna politiskt relevanta länkar på en sida vars sökväg börjar med basePath.
+ * Filtrerar bort icke-politiska sökvägar och ignorerade filändelser.
  */
 export async function discoverLinks(pageUrl: string, basePath: string): Promise<string[]> {
   try {
@@ -67,7 +127,7 @@ export async function discoverLinks(pageUrl: string, basePath: string): Promise<
     if (!res.ok) return [];
     const html = await res.text();
     const $ = cheerio.load(html);
-    const origin = new URL(pageUrl).origin;
+    const hostname = new URL(pageUrl).hostname.toLowerCase();
     const seen = new Set<string>();
     const links: string[] = [];
 
@@ -80,11 +140,11 @@ export async function discoverLinks(pageUrl: string, basePath: string): Promise<
         return;
       }
       const parsed = new URL(absolute);
-      if (parsed.origin !== origin) return;
+      if (parsed.hostname.toLowerCase() !== hostname) return;
       if (!parsed.pathname.startsWith(basePath)) return;
       if (parsed.pathname === new URL(pageUrl).pathname) return;
-      // Strip hash and query for deduplication
-      const clean = `${parsed.origin}${parsed.pathname}`;
+      const clean = normalizeUrl(absolute);
+      if (shouldIgnoreUrl(clean)) return;
       if (!seen.has(clean)) {
         seen.add(clean);
         links.push(clean);

@@ -1,54 +1,140 @@
 import "dotenv/config";
 import { prisma } from "../lib/prisma";
-import { crawlPage, discoverLinks } from "../lib/crawler";
+import { crawlPage, discoverLinks, normalizeUrl, shouldIgnoreUrl } from "../lib/crawler";
 import { SEED_URLS } from "../data/seed-urls";
 
-/**
- * Crawlar en URL och följer interna länkar ett steg ned om sidan är för kort.
- * visited – globalt spår av URL:er som redan bearbetats i denna körning,
- *           förhindrar att cirkulära länkar skapar oändlig rekursion.
- * depth   – 0 = seed-URL, 1 = upptäckt länk (följs ej vidare)
- */
+// ── Konfiguration ────────────────────────────────────────────────────────────
+
+const FULL_LIMITS = {
+  maxPagesPerParty: 10,
+  maxDepth: 1,
+  timeoutPerPageMs: 15000,
+  maxTotalPages: 80,
+  delayMs: 800,
+};
+
+const TEST_LIMITS = {
+  maxPagesPerParty: 3,
+  maxDepth: 1,
+  timeoutPerPageMs: 10000,
+  maxTotalPages: 6,
+  delayMs: 300,
+};
+
+const TEST_MAX_PARTIES = 2;
+
+// ── State ────────────────────────────────────────────────────────────────────
+
+interface CrawlState {
+  visited: Set<string>;           // normaliserade URL:er som redan besökts
+  pagesPerParty: Map<string, number>;
+  totalPages: number;
+}
+
+// ── Hjälpfunktioner ──────────────────────────────────────────────────────────
+
+function tag(partyId: string) {
+  return `[${partyId.slice(0, 2).toUpperCase()}]`;
+}
+
+function counters(partyId: string, state: CrawlState, limits: typeof FULL_LIMITS) {
+  const p = state.pagesPerParty.get(partyId) ?? 0;
+  return `(${p}/${limits.maxPagesPerParty}, ${state.totalPages}/${limits.maxTotalPages})`;
+}
+
+function delay(ms: number) {
+  return new Promise((r) => setTimeout(r, ms));
+}
+
+// ── Kärn-crawl-funktion ──────────────────────────────────────────────────────
+
 async function processUrl(
   url: string,
   partyId: string,
   sourceType: string,
   isPrimary: boolean,
   basePath: string,
-  visited: Set<string>,
+  state: CrawlState,
+  limits: typeof FULL_LIMITS,
   depth = 0,
 ): Promise<{ ok: number; skipped: number; failed: number }> {
-  if (visited.has(url)) return { ok: 0, skipped: 1, failed: 0 };
-  visited.add(url);
+  const norm = normalizeUrl(url);
 
-  const indent = "  " + "  ".repeat(depth);
-  process.stdout.write(`${indent}${partyId} — ${url} ... `);
-  await new Promise((r) => setTimeout(r, 1200));
+  if (state.visited.has(norm)) {
+    return { ok: 0, skipped: 1, failed: 0 };
+  }
+
+  // Kontrollera totalgräns
+  if (state.totalPages >= limits.maxTotalPages) {
+    if (depth === 0) {
+      console.log(`  ${tag(partyId)} STOPP — totalgräns ${limits.maxTotalPages} sidor nådd, avslutar`);
+    }
+    return { ok: 0, skipped: 0, failed: 0 };
+  }
+
+  // Kontrollera per-parti-gräns
+  const partyCount = state.pagesPerParty.get(partyId) ?? 0;
+  if (partyCount >= limits.maxPagesPerParty) {
+    if (depth === 0) {
+      console.log(`  ${tag(partyId)} STOPP — partygräns ${limits.maxPagesPerParty} sidor nådd`);
+    }
+    return { ok: 0, skipped: 0, failed: 0 };
+  }
+
+  // Kontrollera ignore-regler
+  const ignoreReason = shouldIgnoreUrl(norm);
+  if (ignoreReason) {
+    console.log(`  ${tag(partyId)} skip (${ignoreReason}) ${norm}`);
+    state.visited.add(norm);
+    return { ok: 0, skipped: 1, failed: 0 };
+  }
+
+  // Registrera sidan som besökt och räkna upp
+  state.visited.add(norm);
+  state.pagesPerParty.set(partyId, partyCount + 1);
+  state.totalPages++;
+
+  process.stdout.write(`  ${tag(partyId)} ${counters(partyId, state, limits)} ${norm} ... `);
+  await delay(limits.delayMs);
 
   const result = await crawlPage(url, partyId, sourceType, isPrimary);
 
   if (result.ok) {
     const changed = result.isNew || result.changed;
-    console.log(changed ? `✓ ${result.isNew ? "NY" : "UPPDATERAD"} — "${result.title}" (${result.wordCount} ord)` : `= oförändrad (${result.wordCount} ord)`);
+    console.log(
+      changed
+        ? `✓ ${result.isNew ? "NY" : "UPPDATERAD"} — "${result.title}" (${result.wordCount} ord)`
+        : `= oförändrad (${result.wordCount} ord)`,
+    );
     return { ok: changed ? 1 : 0, skipped: changed ? 0 : 1, failed: 0 };
   }
 
-  // Kort indexsida — följ interna länkar, men bara ett djup ned
-  if (result.error === "page_too_short" && depth === 0) {
-    console.log(`~ indexsida, letar interna länkar under ${basePath}...`);
+  // Indexsida utan tillräckligt innehåll — följ interna länkar ett steg ned
+  if (result.error === "page_too_short" && depth < limits.maxDepth) {
+    console.log(`~ indexsida, letar politiska länkar under ${basePath}...`);
+
     const links = await discoverLinks(url, basePath);
-    const newLinks = links.filter((l) => !visited.has(l)).slice(0, 8);
+    const newLinks = links.filter((l) => !state.visited.has(normalizeUrl(l)));
 
     if (newLinks.length === 0) {
-      console.log(`${indent}  → inga följbara nya länkar`);
+      console.log(`    ${tag(partyId)} → inga nya följbara länkar`);
       return { ok: 0, skipped: 0, failed: 1 };
     }
 
+    console.log(`    ${tag(partyId)} → hittade ${newLinks.length} länk(ar)`);
     let ok = 0, skipped = 0, failed = 0;
+
     for (const link of newLinks) {
-      const sub = await processUrl(link, partyId, sourceType, isPrimary, basePath, visited, depth + 1);
+      if (state.totalPages >= limits.maxTotalPages) {
+        console.log(`  ${tag(partyId)} STOPP — totalgräns ${limits.maxTotalPages} nådd under länkföljning`);
+        break;
+      }
+      if ((state.pagesPerParty.get(partyId) ?? 0) >= limits.maxPagesPerParty) {
+        console.log(`  ${tag(partyId)} STOPP — partygräns ${limits.maxPagesPerParty} nådd under länkföljning`);
+        break;
+      }
+      const sub = await processUrl(link, partyId, sourceType, isPrimary, basePath, state, limits, depth + 1);
       ok += sub.ok; skipped += sub.skipped; failed += sub.failed;
-      await new Promise((r) => setTimeout(r, 1200));
     }
     return { ok, skipped, failed };
   }
@@ -57,34 +143,71 @@ async function processUrl(
   return { ok: 0, skipped: 0, failed: 1 };
 }
 
+// ── Main ─────────────────────────────────────────────────────────────────────
+
 async function main() {
   const args = process.argv.slice(2);
+  const isTest = args.includes("--test");
   const filterParty = args.find((a) => a.startsWith("--party="))?.split("=")[1];
 
-  const sources = filterParty
+  const limits = isTest ? TEST_LIMITS : FULL_LIMITS;
+
+  let sources = filterParty
     ? SEED_URLS.filter((s) => s.partyId === filterParty)
     : SEED_URLS;
 
-  console.log(`Crawlar ${sources.length} seed-URL:er${filterParty ? ` för ${filterParty}` : ""}...\n`);
+  if (isTest) {
+    // Välj de första TEST_MAX_PARTIES unika partierna
+    const seenParties = new Set<string>();
+    sources = sources.filter((s) => {
+      if (seenParties.size >= TEST_MAX_PARTIES && !seenParties.has(s.partyId)) return false;
+      seenParties.add(s.partyId);
+      return true;
+    });
+  }
 
-  const visited = new Set<string>();
+  const mode = isTest ? "TESTLÄGE" : "FULLKÖRNING";
+  console.log(`Valkompass-crawl — ${mode}`);
+  console.log(`Gränser: max ${limits.maxPagesPerParty} sidor/parti, max ${limits.maxTotalPages} totalt, djup ${limits.maxDepth}`);
+  console.log(`Seed-URL:er: ${sources.length}${filterParty ? ` (parti: ${filterParty})` : ""}\n`);
+
+  const state: CrawlState = {
+    visited: new Set<string>(),
+    pagesPerParty: new Map<string, number>(),
+    totalPages: 0,
+  };
+
   let totalOk = 0, totalSkipped = 0, totalFailed = 0;
+  let lastParty = "";
 
   for (const source of sources) {
+    if (state.totalPages >= limits.maxTotalPages) {
+      console.log(`\nSTOPP — totalgräns ${limits.maxTotalPages} sidor nådd, hoppar kvarvarande seed-URL:er`);
+      break;
+    }
+
+    if (source.partyId !== lastParty) {
+      console.log(`\n── ${source.partyId} ─────────────────────────────────────────`);
+      lastParty = source.partyId;
+    }
+
     const counts = await processUrl(
       source.url,
       source.partyId,
       source.sourceType,
       source.isPrimary,
       source.basePath,
-      visited,
+      state,
+      limits,
     );
     totalOk += counts.ok;
     totalSkipped += counts.skipped;
     totalFailed += counts.failed;
   }
 
-  console.log(`\nKlar: ${totalOk} sparade, ${totalSkipped} oförändrade, ${totalFailed} misslyckade.`);
+  console.log(`\n${"─".repeat(55)}`);
+  console.log(`Klar: ${totalOk} sparade, ${totalSkipped} oförändrade/hoppade, ${totalFailed} misslyckade`);
+  console.log(`Totalt hämtade sidor: ${state.totalPages}`);
 }
 
 main()
