@@ -12,7 +12,7 @@ type PositionRow = {
   party: { website: string };
 };
 
-const CONFIDENCE_RANK: Record<string, number> = { HIGH: 3, MEDIUM: 2, LOW: 1, UNKNOWN: 0 };
+export const CONFIDENCE_RANK: Record<string, number> = { HIGH: 3, MEDIUM: 2, LOW: 1, UNKNOWN: 0 };
 
 export function normalizeUrl(url: string): string {
   try {
@@ -86,6 +86,42 @@ function isSlogan(quote: string): boolean {
 function isWeakQuestion(q: string): boolean {
   const lower = q.toLowerCase().trim();
   return WEAK_STARTERS.some((s) => lower.startsWith(s));
+}
+
+type MinimalPosition = {
+  id: string;
+  partyId: string;
+  specificQuestion: string;
+  sourceQuote: string;
+  confidence: string;
+  positionValue: number | null;
+};
+
+export function deduplicateForExport<T extends MinimalPosition>(positions: T[]): T[] {
+  // Sort by quality descending so the best is kept on conflict
+  const sorted = [...positions].sort((a, b) => {
+    const ca = CONFIDENCE_RANK[a.confidence] ?? 0;
+    const cb = CONFIDENCE_RANK[b.confidence] ?? 0;
+    if (ca !== cb) return cb - ca;
+    if (a.sourceQuote.length !== b.sourceQuote.length) return b.sourceQuote.length - a.sourceQuote.length;
+    if ((a.positionValue !== null) !== (b.positionValue !== null)) return a.positionValue !== null ? -1 : 1;
+    return 0;
+  });
+
+  const toRemove = new Set<string>();
+  for (let i = 0; i < sorted.length; i++) {
+    if (toRemove.has(sorted[i].id)) continue;
+    for (let j = i + 1; j < sorted.length; j++) {
+      if (toRemove.has(sorted[j].id)) continue;
+      const a = sorted[i];
+      const b = sorted[j];
+      if (a.partyId !== b.partyId) continue;
+      const sameQuote = normalizeText(a.sourceQuote) === normalizeText(b.sourceQuote);
+      const similarQuestion = jaccardSimilarity(a.specificQuestion, b.specificQuestion) >= 0.65;
+      if (sameQuote || similarQuestion) toRemove.add(b.id);
+    }
+  }
+  return sorted.filter((p) => !toRemove.has(p.id));
 }
 
 export type CleanupResult = {
