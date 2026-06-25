@@ -24,7 +24,7 @@ export const UpdatePositionSchema = z.object({
   summary: z.string().min(1).optional(),
   positionValue: z.number().min(-2).max(2).nullable().optional(),
   reviewStatus: z
-    .enum(["PENDING", "APPROVED", "REJECTED", "NEEDS_MORE_SOURCE", "NEEDS_REVIEW"])
+    .enum(["PENDING", "APPROVED", "REJECTED", "NEEDS_MORE_SOURCE", "NEEDS_REVIEW", "READY_FOR_APPROVAL"])
     .optional(),
   reviewNote: z.string().optional(),
 });

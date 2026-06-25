@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import ExportTab from "./ExportTab";
+import StatsTab from "./StatsTab";
 
 type Position = {
   id: string;
@@ -38,6 +39,7 @@ const STATUS_COLORS: Record<string, string> = {
   REJECTED: "bg-red-100 text-red-800",
   NEEDS_MORE_SOURCE: "bg-orange-100 text-orange-800",
   NEEDS_REVIEW: "bg-purple-100 text-purple-800",
+  READY_FOR_APPROVAL: "bg-teal-100 text-teal-800",
 };
 
 const CONFIDENCE_COLORS: Record<string, string> = {
@@ -56,7 +58,7 @@ const SCALE_LABELS: Record<string, string> = {
 };
 
 export default function AdminPage() {
-  const [tab, setTab] = useState<"positions" | "questions" | "export">("positions");
+  const [tab, setTab] = useState<"stats" | "positions" | "questions" | "export">("stats");
   const [positions, setPositions] = useState<Position[]>([]);
   const [questions, setQuestions] = useState<Question[]>([]);
   const [loading, setLoading] = useState(true);
@@ -85,7 +87,7 @@ export default function AdminPage() {
 
   useEffect(() => {
     if (tab === "positions") fetchPositions();
-    else fetchQuestions();
+    else if (tab === "questions") fetchQuestions();
   }, [tab, fetchPositions, fetchQuestions]);
 
   const allParties = [...new Set(positions.map((p) => p.partyId))].sort();
@@ -125,6 +127,10 @@ export default function AdminPage() {
     setSaving(null);
   }
 
+  function onStatsRefresh() {
+    if (tab === "positions") fetchPositions();
+  }
+
   return (
     <div className="max-w-6xl mx-auto px-4 py-8">
       <div className="flex items-center justify-between mb-6">
@@ -138,6 +144,12 @@ export default function AdminPage() {
 
       {/* Tabs */}
       <div className="flex gap-1 mb-6 bg-gray-100 p-1 rounded-lg w-fit">
+        <button
+          onClick={() => setTab("stats")}
+          className={`px-4 py-2 rounded text-sm font-medium ${tab === "stats" ? "bg-white shadow text-gray-900" : "text-gray-500 hover:text-gray-700"}`}
+        >
+          Statistik
+        </button>
         <button
           onClick={() => setTab("positions")}
           className={`px-4 py-2 rounded text-sm font-medium ${tab === "positions" ? "bg-white shadow text-gray-900" : "text-gray-500 hover:text-gray-700"}`}
@@ -158,6 +170,9 @@ export default function AdminPage() {
         </button>
       </div>
 
+      {/* STATS TAB */}
+      {tab === "stats" && <StatsTab onRefresh={onStatsRefresh} />}
+
       {/* POSITIONS TAB */}
       {tab === "positions" && (
         <>
@@ -165,6 +180,7 @@ export default function AdminPage() {
             <select value={filters.reviewStatus} onChange={(e) => setFilters((f) => ({ ...f, reviewStatus: e.target.value }))} className="border border-gray-300 rounded px-3 py-1.5 text-sm">
               <option value="">Alla statusar</option>
               <option value="PENDING">Pending</option>
+              <option value="READY_FOR_APPROVAL">Ready for Approval</option>
               <option value="APPROVED">Approved</option>
               <option value="REJECTED">Rejected</option>
               <option value="NEEDS_MORE_SOURCE">Needs More Source</option>
@@ -200,7 +216,7 @@ export default function AdminPage() {
                       <span className="shrink-0 text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded">{pos.topic}</span>
                       <span className="flex-1 text-sm font-medium">{pos.specificQuestion}</span>
                       <span className={`shrink-0 text-xs px-2 py-0.5 rounded ${CONFIDENCE_COLORS[pos.confidence] ?? ""}`}>{pos.confidence}</span>
-                      <span className={`shrink-0 text-xs px-2 py-0.5 rounded font-medium ${STATUS_COLORS[pos.reviewStatus] ?? ""}`}>{pos.reviewStatus}</span>
+                      <span className={`shrink-0 text-xs px-2 py-0.5 rounded font-medium ${STATUS_COLORS[pos.reviewStatus] ?? "bg-gray-100 text-gray-700"}`}>{pos.reviewStatus}</span>
                       {pos.positionValue !== null && <span className="shrink-0 text-xs text-gray-600 font-mono">{pos.positionValue > 0 ? "+" : ""}{pos.positionValue}</span>}
                       <span className="shrink-0 text-gray-400 text-xs">{isExpanded ? "▲" : "▼"}</span>
                     </div>
@@ -285,7 +301,7 @@ export default function AdminPage() {
                       ))}
                     </div>
                   </div>
-                  <span className={`shrink-0 text-xs px-2 py-0.5 rounded font-medium ${STATUS_COLORS[q.reviewStatus] ?? ""}`}>{q.reviewStatus}</span>
+                  <span className={`shrink-0 text-xs px-2 py-0.5 rounded font-medium ${STATUS_COLORS[q.reviewStatus] ?? "bg-gray-100 text-gray-700"}`}>{q.reviewStatus}</span>
                   <div className="flex gap-1 shrink-0">
                     <button onClick={() => updateQuestion(q.id, { reviewStatus: "APPROVED" })} disabled={saving === q.id || q.reviewStatus === "APPROVED"} className="bg-green-600 text-white px-2 py-1 rounded text-xs font-medium hover:bg-green-700 disabled:opacity-40">✓</button>
                     <button onClick={() => updateQuestion(q.id, { reviewStatus: "REJECTED" })} disabled={saving === q.id || q.reviewStatus === "REJECTED"} className="bg-red-500 text-white px-2 py-1 rounded text-xs font-medium hover:bg-red-600 disabled:opacity-40">✗</button>
