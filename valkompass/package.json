@@ -13,6 +13,7 @@
     "extract": "tsx scripts/extract.ts",
     "crawl:targeted": "tsx scripts/crawl-targeted.ts",
     "export:balanced": "tsx scripts/export-balanced.ts",
+    "export:round3": "tsx scripts/export-round3.ts",
     "generate-questions": "tsx scripts/generate-questions.ts"
   },
   "prisma": {
