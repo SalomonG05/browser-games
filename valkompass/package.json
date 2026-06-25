@@ -11,6 +11,8 @@
     "crawl": "tsx scripts/crawl.ts",
     "crawl:test": "tsx scripts/crawl.ts --test",
     "extract": "tsx scripts/extract.ts",
+    "crawl:targeted": "tsx scripts/crawl-targeted.ts",
+    "export:balanced": "tsx scripts/export-balanced.ts",
     "generate-questions": "tsx scripts/generate-questions.ts"
   },
   "prisma": {
