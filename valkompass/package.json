@@ -16,7 +16,8 @@
     "export:round3": "tsx scripts/export-round3.ts",
     "generate:candidates": "tsx scripts/generate-candidate-questions.ts",
     "generate-questions": "tsx scripts/generate-questions.ts",
-    "apply:review-questions": "tsx scripts/apply-review-questions.ts"
+    "apply:review-questions": "tsx scripts/apply-review-questions.ts",
+    "generate:questions-v2": "tsx scripts/generate-questions-v2.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
