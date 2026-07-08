@@ -1,5 +1,5 @@
 # PROJECT CHECKPOINT — Valkompass
-Uppdaterad: 2026-06-25
+Uppdaterad: 2026-07-08
 
 ---
 
@@ -15,61 +15,81 @@ Stack: **Next.js 16 · Prisma 7 · SQLite · Tailwind · Zod · Cheerio · Claud
 
 ---
 
-## Databas — nuläge (2026-06-25)
+## Databas — nuläge (2026-07-08)
 
 | Modell | Antal |
 |--------|-------|
 | Partier | 8 |
 | APPROVED positioner | **185** |
-| PENDING kandidatfrågor | **72** |
-| APPROVED frågor | **0** |
+| APPROVED frågor | **22** |
+| PENDING frågor (v2-kandidater) | **27** |
+| NEEDS_REVIEW frågor | **46** |
+| REJECTED frågor | **4** |
 
 ### APPROVED positioner per parti
-| Parti | Godkända | Notering |
-|-------|---------|----------|
-| Moderaterna | 47 | Ej med i 7-partiexport (kraftigt överrepresenterade) |
-| Socialdemokraterna | 20 | ✓ Klart |
-| Vänsterpartiet | 20 | ✓ Klart |
-| Kristdemokraterna | 20 | ✓ Klart |
-| Liberalerna | 20 | ✓ Klart |
-| Sverigedemokraterna | 20 | ✓ Klart |
-| Centerpartiet | 19 | Saknar 1 (jobb-ämnet svagt) |
-| Miljöpartiet | 19 | Saknar 1 (jobb-ämnet svagt) |
-| **TOTALT** | **185** | |
+| Parti | Godkända |
+|-------|---------|
+| Moderaterna | 47 |
+| Socialdemokraterna | 20 |
+| Vänsterpartiet | 20 |
+| Kristdemokraterna | 20 |
+| Liberalerna | 20 |
+| Sverigedemokraterna | 20 |
+| Centerpartiet | 19 |
+| Miljöpartiet | 19 |
+| **TOTALT** | **185** |
 
-### Granskningsrundor som körts
-| Runda | Export | Positioner | Resultat |
-|-------|--------|------------|---------|
-| Batch 1 | `chatgpt-review-2026-06-25.md` | 60 | ~60 godkända |
-| Batch 2 (balanced) | `chatgpt-review-2026-06-25-balanced.md` | 56 | 48 direkt + 7 ändringar + 2 NEEDS_REVIEW |
-| Runda 3 | `round3-export-2026-06-25.md` | 77 | 64 direkt + 11 ändringar + 2 NEEDS_REVIEW |
-| **Totalt** | | **185 APPROVED** | |
+### APPROVED frågor — 22 st (klar för /kompass)
+
+| Ämne | Frågor |
+|------|--------|
+| Migration och integration | 1 |
+| Ekonomi | 2 |
+| Lag och ordning | 3 |
+| Klimat och miljö | 1 |
+| Skola och utbildning | 1 |
+| Energi | 3 |
+| Försvar och säkerhet | 1 |
+| Skatter | 4 |
+| Jobb och arbetsmarknad | 0 |
+| Bostäder | 1 |
+| Socialförsäkring och välfärd | 0 |
+| EU och utrikespolitik | 1 |
+| Jämställdhet | 3 |
+| Landsbygd | 1 |
+
+Genomsnittligt antal relevanta partier per APPROVED fråga: **2.1**
+(varav 1 fråga har 4 relevanta partier — kärnkraft)
 
 ---
 
-## Kandidatfråge-export (nästa steg)
+## Frågegenereringshistorik
 
-**Fil:** `exports/candidate-questions-2026-06-25.md`
-**Antal:** 72 kandidatfrågor · alla PENDING · väntar på ChatGPT-granskning
+### Fas 1 — v1 (2026-06-25, NEDLAGD)
+- 72 frågor genererades från breda ämneskluster
+- Problem: ALLA positioner i ett ämne länkades till ALLA frågor i ämnet
+- ChatGPT granskade och godkände/avvisade 72 frågor
+- `scripts/apply-review-questions.ts` körd 2026-07-08:
+  - Relevansfiltrade via Claude API: 776 irrelevanta links borttagna
+  - Resultat: 22 APPROVED, 46 NEEDS_REVIEW, 4 REJECTED
+  - De 46 NEEDS_REVIEW fick bara 1 relevant parti efter filtrering → oanvändbara
 
-### Ämnesfördelning (72 frågor)
-| Ämne | Frågor |
-|------|--------|
-| Migration och integration | 6 |
-| Ekonomi | 6 |
-| Lag och ordning | 6 |
-| Klimat och miljö | 6 |
-| Skola och utbildning | 6 |
-| Energi | 6 |
-| Försvar och säkerhet | 6 |
-| Skatter | 6 |
-| Jobb och arbetsmarknad | 4 |
-| Bostäder | 5 |
-| Socialförsäkring och välfärd | 5 |
-| EU och utrikespolitik | 4 |
-| Jämställdhet | 4 |
-| Vård och omsorg | 0 (för få partier med APPROVED positioner) |
-| Landsbygd | 0 (ingen data) |
+### Fas 2 — v2 (2026-07-08, PENDING CHATGPT-GRANSKNING)
+- Ny ansats: semantisk klustring av positioner INNAN frågegenerering
+- Varje fråga kopplas bara till positioner som faktiskt ingår i klustret
+- `scripts/generate-questions-v2.ts` genererade 27 PENDING frågor
+- Export klar: `exports/candidate-questions-v2-2026-07-08.md`
+
+| Styrka | Antal | Detaljer |
+|--------|-------|----------|
+| Starka (≥3 partier) | 6 | Bl.a. klimat (5 partier), skatter (5 partier) |
+| Svagare (2 partier) | 21 | Verkliga politiska splits men smal positonstäckning |
+| Genomsnitt | 2.4 partier/fråga | |
+
+**Ämnesfördelning v2 PENDING:** Migration (2), Ekonomi (3), Lag & ordning (3),
+Klimat (3), Energi (3), Skatter (2), Jobb (3), Bostäder (3), Jämställdhet (3), Landsbygd (2)
+
+**Ämnen med 0 v2-frågor (dataproblem):** Skola, Försvar, Vård, Socialförsäkring, EU
 
 ---
 
@@ -79,8 +99,10 @@ Stack: **Next.js 16 · Prisma 7 · SQLite · Tailwind · Zod · Cheerio · Claud
 npm run crawl        → hämtar HTML från partiernas webbplatser → sparar i Source-tabellen
 npm run extract      → skickar sources till Claude API → skapar Position-poster (PENDING)
 /admin               → granska positioner manuellt → sätt APPROVED / REJECTED
-npm run generate-questions → skapar Question-poster från APPROVED positioner
-/admin → Valkompassfrågor → godkänn frågor
+npm run generate:questions-v2   → klustra positioner → skapa Question-poster (PENDING)
+[ChatGPT-granskning av export]
+scripts/apply-review-questions-v2.ts → applicera ChatGPT-beslut → APPROVED frågor
+/admin → Valkompassfrågor → kontroll av godkända frågor
 /kompass             → användaren svarar på frågorna
 /resultat            → matchningsresultat med källtransparens
 ```
@@ -95,39 +117,16 @@ DATABASE_URL="file:./dev.db"
 ANTHROPIC_API_KEY="sk-ant-..."   ← HEMLIG, ALDRIG I GIT
 ```
 
-`.env.example` är committad med platshållare. Kopiera den:
-```bash
-cp .env.example .env
-# Fyll i ANTHROPIC_API_KEY
-```
-
 ---
 
 ## Starta projektet igen
 
 ```bash
 cd valkompass
-
-# Installera beroenden (om ny maskin)
-NODE_OPTIONS="--use-system-ca" npm install
-
-# Starta dev-server
 NODE_OPTIONS="--use-system-ca" npm run dev
 # → http://localhost:3000
+# → http://localhost:3000/admin
 ```
-
-Om databasen saknas (ny maskin):
-```bash
-NODE_OPTIONS="--use-system-ca" npx prisma migrate dev
-NODE_OPTIONS="--use-system-ca" npm run seed
-NODE_OPTIONS="--use-system-ca" npm run crawl
-NODE_OPTIONS="--use-system-ca" npm run extract
-# Gå till /admin och godkänn positioner
-NODE_OPTIONS="--use-system-ca" npm run generate-questions
-```
-
-> **OBS:** `NODE_OPTIONS="--use-system-ca"` krävs på denna maskin (Windows, proxy) för att
-> npm/npx ska kunna verifiera TLS-certifikat. Lägg gärna till det som prefix på alla kommandon.
 
 ---
 
@@ -137,16 +136,17 @@ NODE_OPTIONS="--use-system-ca" npm run generate-questions
 |--------|----------|-------------|
 | `dev` | `next dev` | Startar Next.js dev-server på port 3000 |
 | `build` | `next build` | Bygger för produktion |
-| `start` | `next start` | Startar produktionsserver |
 | `seed` | `tsx prisma/seed.ts` | Sår 8 riksdagspartier i databasen |
 | `crawl` | `tsx scripts/crawl.ts` | Crawlar alla seed-URL:er, max 10 sidor/parti |
 | `crawl:test` | `tsx scripts/crawl.ts --test` | Crawlar 2 partier × 3 sidor (~15 sek, röktest) |
 | `crawl:targeted` | `tsx scripts/crawl-targeted.ts` | Riktad crawl per parti (specifika URL:er) |
-| `extract` | `tsx scripts/extract.ts` | Extraherar positioner från crawlade sources via Claude API |
-| `export:balanced` | `tsx scripts/export-balanced.ts` | 8-per-parti ChatGPT-export med topic-spread |
-| `export:round3` | `tsx scripts/export-round3.ts` | Runda 3 export (mål 20 APPROVED/parti) |
-| `generate:candidates` | `tsx scripts/generate-candidate-questions.ts` | Genererar PENDING kandidatfrågor |
-| `generate-questions` | `tsx scripts/generate-questions.ts` | Genererar slutliga frågor från APPROVED positioner |
+| `extract` | `tsx scripts/extract.ts` | Extraherar positioner från crawlade sources |
+| `export:balanced` | `tsx scripts/export-balanced.ts` | ChatGPT-export positioner (8/parti) |
+| `export:round3` | `tsx scripts/export-round3.ts` | Runda 3 export positioner |
+| `generate:candidates` | `tsx scripts/generate-candidate-questions.ts` | V1-frågegenerering (nedlagd) |
+| `generate:questions-v2` | `tsx scripts/generate-questions-v2.ts` | **V2-frågegenerering (aktiv)** |
+| `apply:review-questions` | `tsx scripts/apply-review-questions.ts` | Applicerar ChatGPT-granskning av v1-frågor |
+| `generate-questions` | `tsx scripts/generate-questions.ts` | Slutlig frågegenerering från APPROVED |
 
 ---
 
@@ -155,113 +155,77 @@ NODE_OPTIONS="--use-system-ca" npm run generate-questions
 | Fil | Syfte |
 |-----|-------|
 | `prisma/schema.prisma` | Datamodell — 7 tabeller |
-| `data/seed-urls.ts` | Crawl-URL:er per parti med basePath |
-| `lib/createClient.ts` | Prisma-klient för scripts (relativa importer) |
+| `data/seed-urls.ts` | Crawl-URL:er per parti |
+| `lib/createClient.ts` | Prisma-klient för scripts |
 | `lib/scoring.ts` | Matchningsalgoritm |
 | `app/admin/page.tsx` | Adminvy: positioner, frågor, export |
-| `scripts/export-balanced.ts` | ChatGPT-export batch 2 (8/parti, topic-spread) |
-| `scripts/export-round3.ts` | ChatGPT-export runda 3 (mål 20 APPROVED/parti) |
-| `scripts/apply-review-2026-06-25-batch2.ts` | Applicerade batch 2-granskning |
-| `scripts/apply-review-round3.ts` | Applicerade runda 3-granskning |
-| `scripts/generate-candidate-questions.ts` | Skapar 72 PENDING kandidatfrågor |
-| `scripts/cleanup-pending-questions.ts` | Rensar alla PENDING-frågor + positionslänkar |
-| `exports/candidate-questions-2026-06-25.md` | **← SKICKA DENNA TILL CHATGPT** |
+| `scripts/generate-questions-v2.ts` | **V2-frågegenerering — semantisk klustring** |
+| `scripts/apply-review-questions.ts` | Applicerade v1 ChatGPT-granskning |
+| `exports/candidate-questions-v2-2026-07-08.md` | **← SKICKA TILL CHATGPT** |
 | `.env` | Hemligheter (ALDRIG committa) |
-| `.env.example` | Mall utan hemligheter (committad) |
 
 ---
 
 ## Kända problem och brister
 
-### Kvarstår (blockerar slutgiltig valkompass)
-1. **Inga godkända frågor** — 72 PENDING behöver ChatGPT-granskning → kan inte köra `/kompass` meningsfullt
-2. **Vård-gap** — 0 frågor inom Vård & omsorg (för få partier har APPROVED positioner i ämnet)
-3. **Landsbygd-gap** — 0 frågor (ingen data crawlad)
+### Blockerar slutgiltig valkompass
+1. **27 PENDING frågor** väntar på ChatGPT-granskning → behöver `apply-review-questions-v2.ts`
+2. **Ämnesgap** — 0 frågor inom Vård, Socialförsäkring; 1 svag fråga inom Skola/Försvar/EU
+3. **Genomsnitt 2.1 partier/fråga** bland APPROVED — idealet är 3+
 
 ### Datakvalitet (acceptabla avvägningar)
-4. **SD-crawl begränsad** — SD:s SPA-baserade webbplats gav bara 2 sidor; SD nådde 20 APPROVED via maximering
-5. **C och MP har 19 (ej 20)** APPROVED — saknar 1 inom jobb; acceptabelt för MVP
-6. **Moderaterna uteslutna** från 7-partiexporterna men finns i databasen (47 APPROVED)
+4. M har 47 APPROVED positioner vs 19-20 för övriga — representerar mer data men riskerar bias
+5. SD-crawl begränsad (SPA-webbplats) — täcker bara 20 positioner
+6. C och MP har 19 (ej 20) APPROVED — acceptabelt för MVP
 
 ### Tekniska anmärkningar
-7. **positionValue ≈ +1/+2 för alla** — alla partier har +1/+2 på sina egna positioner, stdDev ≈ 0
-8. **SD positions sign** — SD:s migrationspolitik korrigerades till +2 (stödjer egna restriktioner)
+7. V1-ansatsen (koppla ALLA topic-positioner) visade sig felaktig — V2 fixar detta
+8. positionValue ≈ +1/+2 för alla — stdDev ≈ 0, oanvändbart som filter
+9. `NODE_OPTIONS="--use-system-ca"` krävs på denna maskin för alla npm/npx-kommandon
 
 ---
 
 ## TODO — nästa steg i prioritetsordning
 
-- [ ] **1. Skicka `exports/candidate-questions-2026-06-25.md` till ChatGPT**
-      — be ChatGPT granska varje fråga: GODKÄNN / ÄNDRA OCH GODKÄNN / AVVISA
-- [ ] **2. Skapa `scripts/apply-review-questions.ts`** och applicera ChatGPT-granskning
-      — godkända frågor → APPROVED, avvisade → REJECTED, ändrade → uppdatera text + APPROVED
-- [ ] **3. Testa `/kompass`** — svara på alla frågor som testväljare
-- [ ] **4. Testa `/resultat`** — verifiera matchningsprocent och källlänkar
-- [ ] **5. Validera `lib/scoring.ts`** — kontrollera att M inte gynnas av fler positioner
-- [ ] **6. (Framtid) Vård-gap** — ny crawl av fler partiers hälsosidor om vård-frågor saknas
-- [ ] **7. (Framtid) Lägg till Moderaterna** i balanserad position-export (nu uteslutna)
+- [ ] **1. Skicka `exports/candidate-questions-v2-2026-07-08.md` till ChatGPT**
+      — be ChatGPT granska: GODKÄNN / ÄNDRA OCH GODKÄNN / AVVISA per fråga
+- [ ] **2. Skapa `scripts/apply-review-questions-v2.ts`** och applicera granskning
+- [ ] **3. Kontrollera statistik** — ämnesfördelning, partitäckning, antal APPROVED frågor
+- [ ] **4. Testa `/kompass`** — svara på alla frågor som testväljare
+- [ ] **5. Testa `/resultat`** — verifiera matchningsprocent och källlänkar
+- [ ] **6. (Framtid) Täcka ämnesgap** — Skola, Försvar, EU, Vård via ny riktad crawl
 
 ---
 
 ## Tekniska antaganden
 
 - **Prisma v7** kräver Driver Adapter (`PrismaBetterSqlite3`) — `new PrismaClient()` ensam fungerar inte
-- **`lib/createClient.ts`** används i alla `scripts/*.ts` med relativa importer (ej `@/`-alias)
+- **`lib/createClient.ts`** används i alla `scripts/*.ts` med relativa importer
 - **`dotenv/config`** måste importeras *först* i scripts
-- **`skipDuplicates`** stöds ej i Prisma 7/SQLite — använd `upsert`-loop
-- **positionValue** är alltid +1/+2 för egna positioner — stdDev ≈ 0, fungerar ej som filter
-- **`QuestionPosition`** composite PK: `@@id([questionId, positionId])`, upsert-nyckel: `questionId_positionId`
-- **SD positionValues**: SD:s migrationspolitik = +2 (SD stödjer sina egna restriktioner)
-- **NODE_OPTIONS="--use-system-ca"** krävs på denna maskin för alla npm/npx-kommandon
+- **QuestionPosition** composite PK: `@@id([questionId, positionId])`, upsert-nyckel: `questionId_positionId`
+- **`NODE_OPTIONS="--use-system-ca"`** krävs på denna maskin för alla npm/npx-kommandon
+- **V2-frågor** har redan korrekta QuestionPosition-länkar — inget relevansfiltreringssteg behövs
 
 ---
 
 ## Absolut att inte glömma
 
-1. **ANTHROPIC_API_KEY i `.env` — aldrig i git** (`.gitignore` skyddar, men dubbelkolla)
+1. **ANTHROPIC_API_KEY i `.env` — aldrig i git**
 2. **Ändra inte källcitat (sourceQuote) eller source_url** — de är faktabaserade
 3. **Godkänn ingenting automatiskt** — kräver mänsklig/ChatGPT-granskning
 4. **Frågor ska bara genereras från APPROVED positioner**
 5. `NODE_OPTIONS="--use-system-ca"` krävs på denna maskin för alla npm/npx-kommandon
-6. Prisma-migrationer: kör `npx prisma migrate dev` om schema ändrats, inte bara `generate`
-7. Dev-servern kan råka köra på port 3001 om 3000 är upptagen — kolla terminalen
+6. Dev-servern kan råka köra på port 3001 om 3000 är upptagen — kolla terminalen
 
 ---
 
-## Starta om projektet
+## Git-status vid checkpoint (2026-07-08)
 
-```bash
-# Starta dev-server
-NODE_OPTIONS="--use-system-ca" npm run dev
-# → http://localhost:3000
-# → http://localhost:3000/admin (adminvy)
-
-# Se kandidatfrågorna som ska granskas
-# exports/candidate-questions-2026-06-25.md
-```
-
----
-
-## Git-status vid checkpoint (2026-06-25)
-
-Branch: `master` — **synkad med origin/master**
+Branch: `master` — synkad med origin/master
 
 Senaste commits:
 ```
-3ad1d27 Generate 72 candidate questions for valkompass review
-2d64949 Add export tab in admin for ChatGPT review
-7aee5eb Add crawl limits, URL filtering, progress logging, and test mode
+65175d0 Add semantic-clustering question generator v2 and candidate export
+a05afbb Apply ChatGPT question review: relevance-filter positions and set statuses
+f59cfca Add project checkpoint documenting 185 APPROVED positions and 72 candidate questions
 ```
-
-Ospårade filer:
-- `valkompass/PROJECT_CHECKPOINT.md` (denna fil)
-
----
-
-## Checkpoint klar
-
-**Nästa steg är att granska kandidatfråge-exporten med ChatGPT.**
-
-Öppna `exports/candidate-questions-2026-06-25.md` och klistra in i ChatGPT.
-
-**Generera inte slutlig valkompass innan frågorna är granskade.**
