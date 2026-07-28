@@ -66,6 +66,7 @@ model Question {
   questionText     String
   description      String?
   weightingEnabled Boolean            @default(true)
+  weak             Boolean            @default(false)
   reviewStatus     String             @default("PENDING")
   createdAt        DateTime           @default(now())
   positions        QuestionPosition[]
