@@ -74,10 +74,11 @@ model Question {
 }
 
 model QuestionPosition {
-  questionId String
-  positionId String
-  question   Question @relation(fields: [questionId], references: [id])
-  position   Position @relation(fields: [positionId], references: [id])
+  questionId            String
+  positionId            String
+  questionPositionValue Float?
+  question              Question @relation(fields: [questionId], references: [id])
+  position              Position @relation(fields: [positionId], references: [id])
 
   @@id([questionId, positionId])
 }

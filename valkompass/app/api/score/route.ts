@@ -37,14 +37,13 @@ export async function POST(request: NextRequest) {
     topic: q.topic,
     questionText: q.questionText,
     positions: q.positions
-      .map((qp) => qp.position)
-      .filter((p) => p.reviewStatus === "APPROVED" && p.positionValue !== null)
-      .map((p) => ({
-        partyId: p.partyId,
-        positionValue: p.positionValue as number,
-        sourceUrl: p.sourceUrl,
-        sourceQuote: p.sourceQuote,
-        summary: p.summary,
+      .filter((qp) => qp.position.reviewStatus === "APPROVED" && (qp.questionPositionValue ?? qp.position.positionValue) !== null)
+      .map((qp) => ({
+        partyId: qp.position.partyId,
+        positionValue: (qp.questionPositionValue ?? qp.position.positionValue) as number,
+        sourceUrl: qp.position.sourceUrl,
+        sourceQuote: qp.position.sourceQuote,
+        summary: qp.position.summary,
       })),
   }));
 

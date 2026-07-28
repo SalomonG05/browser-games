@@ -72,16 +72,18 @@ export default function ResultatPage() {
       <div className="space-y-4 mb-10">
         {scores.map((s, i) => {
           const barColor = PARTY_COLORS[i % PARTY_COLORS.length];
-          const isLowData = s.questionsMatched < Math.max(3, Math.floor(totalQuestions * 0.5));
+          const dataLabel =
+            s.questionsMatched < 5  ? "Mycket begränsat underlag" :
+            s.questionsMatched < 10 ? "Begränsat underlag" : null;
           return (
             <div key={s.partyId}>
               <div className="flex items-center justify-between mb-1">
                 <div className="flex items-center gap-2">
                   <span className="font-semibold text-gray-900">{s.party.name}</span>
                   <span className="text-xs text-gray-400">({s.party.shortName})</span>
-                  {isLowData && (
+                  {dataLabel && (
                     <span className="text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded">
-                      ⚠ Färre frågor ({s.questionsMatched}/{totalQuestions})
+                      ⚠ {dataLabel} ({s.questionsMatched}/{totalQuestions})
                     </span>
                   )}
                 </div>

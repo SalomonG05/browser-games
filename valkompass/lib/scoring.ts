@@ -57,7 +57,7 @@ export function scoreAnswers(
 
     for (const question of questions) {
       const userAnswer = answerMap.get(question.id);
-      if (!userAnswer || userAnswer.skipped || userAnswer.answer === null) {
+      if (!userAnswer || userAnswer.skipped || userAnswer.answer === null || userAnswer.importance === 0) {
         questionsSkipped++;
         continue;
       }
