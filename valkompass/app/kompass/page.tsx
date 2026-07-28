@@ -125,9 +125,6 @@ export default function KompassPage() {
           {question.topic}
         </span>
         <h2 className="text-xl font-semibold text-gray-900 mb-2">{question.questionText}</h2>
-        {question.description && (
-          <p className="text-sm text-gray-500">{question.description}</p>
-        )}
       </div>
 
       {/* Scale */}

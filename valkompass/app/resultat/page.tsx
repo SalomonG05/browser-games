@@ -63,7 +63,7 @@ export default function ResultatPage() {
       <div className="mb-8">
         <h1 className="text-2xl font-bold mb-1">Ditt resultat</h1>
         <p className="text-sm text-gray-500">
-          Matchningen baseras på {scores[0]?.questionsMatched ?? 0} frågor (av {totalQuestions} totalt).
+          Matchningen baseras på {scores[0]?.questionsMatched ?? 0} {(scores[0]?.questionsMatched ?? 0) === 1 ? "fråga" : "frågor"} (av {totalQuestions} totalt).
           Frågor som hoppades över eller saknar partiposition räknas inte.
         </p>
       </div>

@@ -95,7 +95,7 @@ export function scoreAnswers(
 
     const sorted = [...questionDiffs].sort((a, b) => a.diff - b.diff);
     const closeQuestions = sorted.slice(0, 3);
-    const farQuestions = sorted.slice(-3).reverse();
+    const farQuestions = sorted.length > 3 ? sorted.slice(-3).reverse() : [];
 
     return {
       partyId,
