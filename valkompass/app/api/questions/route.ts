@@ -28,7 +28,12 @@ export async function GET() {
     questionText: q.questionText,
     description: q.description,
     weightingEnabled: q.weightingEnabled,
-    positions: q.positions.map((qp) => qp.position),
+    positions: q.positions.map((qp) => ({
+      ...qp.position,
+      // questionPositionValue is relative to the question's direction (JA=+, NEJ=−).
+      // Fall back to Position.positionValue only when no question-relative value is set.
+      positionValue: qp.questionPositionValue ?? qp.position.positionValue,
+    })),
   }));
 
   return NextResponse.json(formatted);
