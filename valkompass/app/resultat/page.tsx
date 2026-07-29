@@ -32,10 +32,16 @@ type Result = {
   totalQuestions: number;
 };
 
-const PARTY_COLORS = [
-  "bg-blue-500", "bg-green-500", "bg-red-500", "bg-purple-500",
-  "bg-orange-500", "bg-teal-500", "bg-rose-500", "bg-amber-500",
-];
+const PARTY_COLOR: Record<string, string> = {
+  socialdemokraterna:  "bg-red-600",
+  vansterpartiet:      "bg-red-900",
+  moderaterna:         "bg-blue-500",
+  kristdemokraterna:   "bg-indigo-700",
+  liberalerna:         "bg-sky-500",
+  sverigedemokraterna: "bg-yellow-500",
+  centerpartiet:       "bg-green-600",
+  miljopartiet:        "bg-emerald-500",
+};
 
 export default function ResultatPage() {
   const [result, setResult] = useState<Result | null>(null);
@@ -58,20 +64,25 @@ export default function ResultatPage() {
   const { scores, totalQuestions } = result;
   const maxMatch = scores[0]?.matchPercent ?? 100;
 
+  // questionsSkipped is the same for all parties (depends only on user answers, not party)
+  const questionsSkipped = scores[0]?.questionsSkipped ?? 0;
+  const questionsAnswered = totalQuestions - questionsSkipped;
+
   return (
     <div className="max-w-3xl mx-auto px-6 py-10">
       <div className="mb-8">
         <h1 className="text-2xl font-bold mb-1">Ditt resultat</h1>
         <p className="text-sm text-gray-500">
-          Matchningen baseras på {scores[0]?.questionsMatched ?? 0} {(scores[0]?.questionsMatched ?? 0) === 1 ? "fråga" : "frågor"} (av {totalQuestions} totalt).
-          Frågor som hoppades över eller saknar partiposition räknas inte.
+          Du svarade på <strong>{questionsAnswered}</strong> av {totalQuestions} frågor.
+          Varje parti matchas bara på de frågor där partiet har en granskad position —
+          antalet varierar per parti och visas under stapeln.
         </p>
       </div>
 
       {/* Party bars */}
       <div className="space-y-4 mb-10">
-        {scores.map((s, i) => {
-          const barColor = PARTY_COLORS[i % PARTY_COLORS.length];
+        {scores.map((s) => {
+          const barColor = PARTY_COLOR[s.partyId] ?? "bg-gray-400";
           const dataLabel =
             s.questionsMatched < 5  ? "Mycket begränsat underlag" :
             s.questionsMatched < 10 ? "Begränsat underlag" : null;
@@ -83,7 +94,7 @@ export default function ResultatPage() {
                   <span className="text-xs text-gray-400">({s.party.shortName})</span>
                   {dataLabel && (
                     <span className="text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded">
-                      ⚠ {dataLabel} ({s.questionsMatched}/{totalQuestions})
+                      ⚠ {dataLabel}
                     </span>
                   )}
                 </div>
@@ -95,6 +106,9 @@ export default function ResultatPage() {
                   style={{ width: `${maxMatch > 0 ? (s.matchPercent / maxMatch) * 100 : 0}%` }}
                 />
               </div>
+              <p className="text-xs text-gray-400 mt-0.5">
+                Baserat på {s.questionsMatched} av {totalQuestions} frågor
+              </p>
 
               {/* Expanded detail */}
               {expanded === s.partyId && (
